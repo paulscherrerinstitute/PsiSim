@@ -1,3 +1,8 @@
+## 2.0.1
+
+* Bugfixes
+  * Do only use -novopt flag for modelsim versions < 10.7 (does not exist anymore in newer versions)
+
 ## 2.0.0
 
 * First open-source release (older history is not kept)
