@@ -24,6 +24,7 @@ namespace eval psi::sim {
 	variable CompileSuppress
 	variable RunSuppress
 	variable Simulator
+	variable SimulatorVersion
 	variable TranscriptFile
 	
 	#################################################################
@@ -66,6 +67,18 @@ namespace eval psi::sim {
 		} 
 		variable TranscriptFile [file normalize $filename]
 	}	
+	
+	proc version_specific_flags {} {
+		variable Simulator
+		variable SimulatorVersion
+		set args ""
+		if {$Simulator == "Modelsim"} {
+			if {[expr $SimulatorVersion < 10.7]} {
+				set args "$args -novopt"
+			}			
+		}
+		return $args
+	}
 
 	#################################################################
 	# Interface Functions (exported)
@@ -94,6 +107,14 @@ namespace eval psi::sim {
 		variable CompileSuppress ""
 		variable RunSuppress ""
 		variable CurrentLib "NoCurrentLibrary"
+		#Simulator specific initialization
+		if {$Simulator == "Modelsim"} {
+			set versionStr [vsim -version]
+			regexp {[0-9\.]+} $versionStr versionNr
+			variable SimulatorVersion $versionNr
+		} else {
+			variable SimulatorVersion "NotImplementedForThisSimulator"
+		}
 		clean_transcript
 	}
 	namespace export init
@@ -324,7 +345,8 @@ namespace eval psi::sim {
 			#Execute compilation
 			print_log "$thisFileLib - Compile [file tail $thisFilePath]"
 			if {$Simulator == "Modelsim"} {
-				set args "-work $thisFileLib -novopt -suppress $CompileSuppress $thisFileOptions -quiet $thisFilePath"
+				set vFlags [version_specific_flags]
+				set args "-work $thisFileLib $vFlags -suppress $CompileSuppress $thisFileOptions -quiet $thisFilePath"
 				if {$thisFileLanguage == "vhdl"} {
 					lappend args "-$thisFileVersion"
 					vcom {*}$args
