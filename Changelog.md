@@ -1,3 +1,8 @@
+## 2.0.2
+
+* Bugfixes
+  * Fixed Modelsim Version Readout (required for 2.0.1) to also work on linux and be more stable
+
 ## 2.0.1
 
 * Bugfixes
