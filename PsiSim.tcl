@@ -123,7 +123,7 @@ namespace eval psi::sim {
 			set versionStr [read $txtFile]; list
 			close $txtFile
 			file delete tempVersion.txt
-			regexp {[0-9\.]+} $versionStr versionNr
+			regexp {\s([0-9\.]+)\s} $versionStr dummy versionNr
 			variable SimulatorVersion $versionNr
 			puts "ModelsimVersion: $versionNr"
 		} else {
