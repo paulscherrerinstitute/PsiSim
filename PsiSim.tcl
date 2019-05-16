@@ -87,6 +87,7 @@ namespace eval psi::sim {
 	#
 	# -ghdl		Use GHDL instead of modelsim (modelsim is default)
 	proc init {args} {
+		puts "Initialize PsiSim"
 		set argList [split $args]
 		set simulatorType "Modelsim"
 		set i 0		
@@ -109,9 +110,22 @@ namespace eval psi::sim {
 		variable CurrentLib "NoCurrentLibrary"
 		#Simulator specific initialization
 		if {$Simulator == "Modelsim"} {
-			set versionStr [vsim -version]
+			#The vsim -version command does not return the version but write it to stdout. Therefore this is
+			#.. forwareded to a file and read back from there. A sleep is required because writing the
+			#.. file takes some time. 
+			#.. Modelsim prints a warning because the stdout is forwarded to a file. Unfortunately I could not
+			#.. find any way to suppress this warning (the forwarding is fully okay and expected).
+			puts ">>> Error expected ..."
+			vcom -version >tempVersion.txt
+			puts ">>> ... until here."
+			after 500			
+			set txtFile [open tempVersion.txt]; list
+			set versionStr [read $txtFile]; list
+			close $txtFile
+			file delete tempVersion.txt
 			regexp {[0-9\.]+} $versionStr versionNr
 			variable SimulatorVersion $versionNr
+			puts "ModelsimVersion: $versionNr"
 		} else {
 			variable SimulatorVersion "NotImplementedForThisSimulator"
 		}
