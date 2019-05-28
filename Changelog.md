@@ -1,3 +1,8 @@
+## 2.1.0
+
+* Added Features
+  * Added *tb\_run\_skip* - possibility to skip a simulation for one or all simulator tools (helps avoiding tool bugs)
+
 ## 2.0.2
 
 * Bugfixes

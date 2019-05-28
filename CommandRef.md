@@ -20,6 +20,7 @@ namespace import psi::sim::*
  * [tb_run_add_time_limit](#tb_run_add_time_limit)  
  * [tb_run_add_pre_script](#tb_run_add_pre_script)  
  * [tb_run_add_post_script](#tb_run_add_post_script)  
+ * [tb_run_skip](#tb_run_skip)  
  * [compile_suppress](#compile_suppress)  
  * [run_suppress](#run_suppress)  
 * Run Commands
@@ -281,6 +282,31 @@ The command must be called between the [create_tb_run](#create_tb_run) and the [
 ### tb_run_add_post_script  
 This command is equal to [tb_run_add_pre_script](#tb_run_add_pre_script) but the script is executed
 after the simulations.
+
+### tb_run_skip
+**Usage**
+```
+tb_run_skip [<simulator>]
+```
+
+**Description**  
+This command allows skipping the testbench for all simulators or only for one simulator. This can be used if bugs in a simulator tool lead to crashes.
+
+The command must be called between the [create_tb_run](#create_tb_run) and the [add_tb_run](#add_tb_run) commands.
+
+**Parameters**
+<table>
+    <tr>
+      <th width="200"><b>Parameter</b></th>
+      <th align="center" width="80"><b>Optional</b></th>
+      <th align="right"><b>Description</b></th>
+    </tr>
+    <tr>
+      <td> simulator </td>
+      <td> Yes </td>
+      <td> Simulator to skip simulation for. Use **all**, **Modelsim** or **GHDL** </td>
+    </tr>		
+</table>
 
 ### compile_suppress
 **Usage**

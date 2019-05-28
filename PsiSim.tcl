@@ -412,6 +412,7 @@ namespace eval psi::sim {
 		dict set ThisTbRun POSTSCRIPT_PATH "."
 		dict set ThisTbRun POSTSCRIPT_ARGS ""	
 		dict set ThisTbRun TIME_LIMIT "None"
+        dict set ThisTbRun SKIP "None"
 	}
 	namespace export create_tb_run
 	
@@ -463,6 +464,15 @@ namespace eval psi::sim {
 		dict set ThisTbRun TIME_LIMIT $limit
 	}
 	namespace export tb_run_add_time_limit
+    
+    # Skip this testbench for one or all simulators
+    #
+    # @param simulator  Simulator to skip the TB for (use "GHDL", "Modelsim" or "all")
+    proc tb_run_skip {{simulator "all"}} {
+        variable ThisTbRun
+        dict set ThisTbRun SKIP $simulator
+    }
+    namespace export tb_run_skip
 	
 	# This command must be called when a TB run created with create_tb_run is fully specified and can be added. The TB run cannot be modified after
 	# this command is called
@@ -568,6 +578,7 @@ namespace eval psi::sim {
 			#Check if TB should be run
 			set runLib [dict get $run TB_LIB]
 			set runName [dict get $run TB_NAME]
+            set skip [dict get $run SKIP]
 			if {($runLib != $Library) && ($Library != "All-Libraries")} {
 				continue
 			}
@@ -581,6 +592,11 @@ namespace eval psi::sim {
 			print_log "******************************************************"
 			print_log "*** Run $runLib.$runName"
 			print_log "******************************************************"
+            
+            if {($skip == $Simulator) || ($skip == "all")} {
+                print_log "!!! Skipped for '$skip' !!!"
+                continue
+            }
 		
 			#Execute pre-script if required
 			set PsCmd [dict get $run PRESCRIPT_CMD]
