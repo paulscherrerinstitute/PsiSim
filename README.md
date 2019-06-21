@@ -20,7 +20,12 @@ parsed automatically.
 In contrast to modelsim projects, simulation scripts written using this TCL package are version control friendly and
 easily mergable.
 
-The framework allows running the same simulations using either Modelsim or GHDL. See [Command Reference](CommandRef.md) for details.
+The framework allows running the same simulations using either Modelsim, GHDL or Vivado. See [Command Reference](CommandRef.md) for details.
+
+### Notes regarding Vivado
+Vivado does not support many VHDL-2008 statements and the simulator is quite slow. So only use Vivado if none of the other options work for you. GHDL is faster and supports more VHDL2008 statements.
+
+In the PSI-libraries, many testbenches use VHDL 2008, so they cannot be executed with Vivado.
 
 ## Usage
 Usually two files are written to describe simulations for a set of VHDL files. 

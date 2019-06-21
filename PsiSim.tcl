@@ -33,16 +33,15 @@ namespace eval psi::sim {
 		variable TranscriptFile
 		if {$Simulator == "Modelsim"} {
 			echo $text
-		} elseif {$Simulator == "GHDL"} {
+		} elseif {($Simulator == "GHDL") || ($Simulator == "Vivado")} {
 			#Console
 			puts $text
 			#Transcript
 			set fo [open $TranscriptFile a]
 			puts $fo $text
-			close $fo
-			
+			close $fo			
 		} else {
-			puts "Unsupported Simulator - sal_print_log(): $Simulator"
+			puts "ERROR: Unsupported Simulator - sal_print_log(): $Simulator"
 		}
 	}
 	
@@ -50,10 +49,10 @@ namespace eval psi::sim {
 		variable Simulator
 		if {$Simulator == "Modelsim"} {
 			transcript off
-		} elseif {$Simulator == "GHDL"} {
+		} elseif {($Simulator == "GHDL") || ($Simulator == "Vivado")} {
 			#Nothing to do
 		} else {
-			puts "Unsupported Simulator - sal_transcript_off(): $Simulator"
+			puts "ERROR: Unsupported Simulator - sal_transcript_off(): $Simulator"
 		}
 	}
 	
@@ -61,10 +60,10 @@ namespace eval psi::sim {
 		variable Simulator
 		if {$Simulator == "Modelsim"} {
 			transcript on
-		} elseif {$Simulator == "GHDL"} {
+		} elseif {($Simulator == "GHDL") || ($Simulator == "Vivado")} {
 			#Nothing to do
 		} else {
-			puts "Unsupported Simulator - sal_transcript_on(): $Simulator"
+			puts "ERROR: Unsupported Simulator - sal_transcript_on(): $Simulator"
 		}
 	}
 	
@@ -72,10 +71,10 @@ namespace eval psi::sim {
 		variable Simulator
 		if {$Simulator == "Modelsim"} {
 			transcript file $filename
-		} elseif {$Simulator == "GHDL"} {
+		} elseif {($Simulator == "GHDL") || ($Simulator == "Vivado")} {
 			#Nothing to do
 		} else {
-			puts "Unsupported Simulator - sal_set_transcript_file(): $Simulator"
+			puts "ERROR: Unsupported Simulator - sal_set_transcript_file(): $Simulator"
 		}		
 		variable TranscriptFile [file normalize $filename]
 	}	
@@ -83,11 +82,7 @@ namespace eval psi::sim {
 	proc sal_clean_transcript {} {
 		variable Simulator
 		sal_transcript_off
-		if {$Simulator == "GHDL"} {
-			file delete ./Transcript.transcript
-			sal_set_transcript_file ./Transcript.transcript
-			return
-		} elseif {$Simulator == "Modelsim"} {
+		if {$Simulator == "Modelsim"} {
 			sal_set_transcript_file ./Dummy.transcript
 			set bm [batch_mode]
 			if {$bm == 0} {
@@ -95,8 +90,12 @@ namespace eval psi::sim {
 			}
 			sal_set_transcript_file ./Transcript.transcript
 			file delete ./Dummy.transcript
+		} elseif {($Simulator == "GHDL") || ($Simulator == "Vivado")} {
+			file delete ./Transcript.transcript
+			sal_set_transcript_file ./Transcript.transcript
+			return
 		} else {
-			puts "Unsupported Simulator - sal_clean_transcript(): $Simulator"
+			puts "ERROR: Unsupported Simulator - sal_clean_transcript(): $Simulator"
 		}
 		sal_transcript_on
 	}
@@ -110,10 +109,10 @@ namespace eval psi::sim {
 			if {[expr $SimulatorVersion < 10.7]} {
 				set args "$args -novopt"
 			}			
-		} elseif {$Simulator == "GHDL"} {
+		} elseif {($Simulator == "GHDL") || ($Simulator == "Vivado")} {
 			#Nothing to do
 		} else {
-			puts "Unsupported Simulator - sal_version_specific_flags(): $Simulator"
+			puts "ERROR: Unsupported Simulator - sal_version_specific_flags(): $Simulator"
 		}
 		
 		return $args
@@ -140,8 +139,10 @@ namespace eval psi::sim {
 			puts "ModelsimVersion: $versionNr"
 		} elseif {$Simulator == "GHDL"} {
 			variable SimulatorVersion "NotImplementedForGhdl"
+		} elseif {$Simulator == "Vivado"} {
+			variable SimulatorVersion "NotImplementedForvivado"			
 		} else {
-			puts "Unsupported Simulator - sal_init_simulator(): $Simulator"
+			puts "ERROR: Unsupported Simulator - sal_init_simulator(): $Simulator"
 		}
 	}
 	
@@ -151,11 +152,11 @@ namespace eval psi::sim {
 			vlib $lib
 			vdel -all -lib $lib
 			vlib $lib
-		} elseif {$Simulator == "GHDL"} {
+		} elseif {($Simulator == "GHDL") || ($Simulator == "Vivado")} {
 			file delete -force $lib
 			file mkdir $lib
 		} else {
-			puts "Unsupported Simulator - sal_clean_lib(): $Simulator"
+			puts "ERROR: Unsupported Simulator - sal_clean_lib(): $Simulator"
 		}
 	}
 	
@@ -182,8 +183,19 @@ namespace eval psi::sim {
 				sal_print_log "ERROR: Verilog currently not supported for GHDL"
 				sal_print_log ""
 			}
+		} elseif {$Simulator == "Vivado"} {		
+			if {$language == "vhdl"} {
+				set langArg ""
+				if {$langVersion == "2008"} {
+					set langArg "--2008"
+				}
+			} else {
+				sal_print_log "ERROR: Verilog currently not supported for Vivado, request this feature from the developers"
+				sal_print_log ""
+			}
+			exec xvhdl --lib=$lib --work $lib=$lib $langArg $path
 		} else {
-			puts "Unsupported Simulator - sal_compile_file(): $Simulator"
+			puts "ERROR: Unsupported Simulator - sal_compile_file(): $Simulator"
 		}
 	}
 	
@@ -194,11 +206,11 @@ namespace eval psi::sim {
 		sal_print_log "Running Pre Script"
 		if {$Simulator == "Modelsim"} {
 			sal_print_log [exec $cmd $args]
-		} elseif {$Simulator == "GHDL"} {
+		} elseif {($Simulator == "GHDL") || ($Simulator == "Vivado")} {
 			set outp [exec $cmd $args]
 			sal_print_log $outp
 		} else {
-			puts "Unsupported Simulator - sal_exec_script(): $Simulator"
+			puts "ERROR: Unsupported Simulator - sal_exec_script(): $Simulator"
 		}
 		cd $oldPath
 	}
@@ -234,8 +246,54 @@ namespace eval psi::sim {
 			sal_print_log $cmd
 			set outp [eval "exec $cmd"]
 			sal_print_log $outp
+		} elseif {$Simulator == "Vivado"} {
+			#Write propper initfile (workaround because --lib switch of xelab does not work)
+			variable Libraries
+			set initFile psi_vivado_init.ini
+			file delete $initFile
+			set fo [open $initFile w+]
+			foreach lib $Libraries {
+				puts $fo "$lib=$lib\n"
+			}
+			close $fo	
+			#Find generic overrides
+			set genericOverrides ""
+			foreach param $tbArgs {
+				if {[string match "-g*" $param]} {
+					lappend genericOverrides "-generic_top [string range $param 2 end]"
+				}
+			}
+			set genericOverrides [join $genericOverrides " "]
+			#Elaborate
+			set cmd "xelab --initfile $initFile -s psi_sim_snapshot -debug typical"
+			if {$genericOverrides != ""} {
+				set cmd "$cmd $genericOverrides"
+			}
+			set cmd "$cmd $lib.$tbName"
+			sal_print_log "$cmd"
+			eval "exec $cmd"
+			#Create simulation tcl file
+			set outputFile psi_sim_output.txt
+			file delete -force $outputFile
+			set simTclName "psi_sim_run.tcl"
+			set fo [open $simTclName w+]
+			if {$timeLimit != "None"} {
+				puts $fo "run $timeLimit > $outputFile;"
+			} else {
+				puts $fo "run -all > $outputFile;"
+			}
+			puts $fo "exit" 
+			close $fo
+			set cmd "xsim psi_sim_snapshot -tclbatch $simTclName"
+			sal_print_log "$cmd"
+			eval "exec $cmd"	
+			#Add aoutput to log
+			set fo [open $outputFile r]
+			sal_print_log [read $fo]
+			close $fo
+					
 		} else {
-			puts "Unsupported Simulator - sal_run_tb(): $Simulator"
+			puts "ERROR: Unsupported Simulator - sal_run_tb(): $Simulator"
 		}
 	}
 
@@ -254,6 +312,8 @@ namespace eval psi::sim {
 			set thisArg [lindex $argList $i]
 			if {$thisArg == "-ghdl"} {
 				variable Simulator "GHDL"
+			} elseif {$thisArg == "-vivado"} {
+				variable Simulator "Vivado"
 			} else {
 				sal_print_log "WARNING: ignored argument $thisArg"
 				sal_print_log ""
