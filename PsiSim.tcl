@@ -10,8 +10,6 @@
 # This package helps to quickly and easily create regression test simulations
 # including multiple test-runs and pre- resp. post-scripts.
 #
-# An example on how to use the package can be found here:
-# G\GPAC\Board\GPAC3_0\BPM_FPGA\SLS_DBPM3\IP_Repo\sls_dwc_1.0\sim
 
 namespace eval psi::sim {
 
@@ -28,9 +26,9 @@ namespace eval psi::sim {
 	variable TranscriptFile
 	
 	#################################################################
-	# Tool abstraction functions (not exported)
+	# Simulator Abstraction Layer (SAL)
 	#################################################################
-	proc print_log {text} {
+	proc sal_print_log {text} {
 		variable Simulator
 		variable TranscriptFile
 		if {$Simulator == "Modelsim"} {
@@ -43,32 +41,68 @@ namespace eval psi::sim {
 			puts $fo $text
 			close $fo
 			
+		} else {
+			puts "Unsupported Simulator - sal_print_log(): $Simulator"
 		}
 	}
 	
-	proc transcript_off {} {
+	proc sal_transcript_off {} {
 		variable Simulator
 		if {$Simulator == "Modelsim"} {
 			transcript off
+		} elseif {$Simulator == "GHDL"} {
+			#Nothing to do
+		} else {
+			puts "Unsupported Simulator - sal_transcript_off(): $Simulator"
 		}
 	}
 	
-	proc transcript_on {} {
+	proc sal_transcript_on {} {
 		variable Simulator
 		if {$Simulator == "Modelsim"} {
 			transcript on
+		} elseif {$Simulator == "GHDL"} {
+			#Nothing to do
+		} else {
+			puts "Unsupported Simulator - sal_transcript_on(): $Simulator"
 		}
 	}
 	
-	proc transcript_file {filename} {
+	proc sal_set_transcript_file {filename} {
 		variable Simulator
 		if {$Simulator == "Modelsim"} {
 			transcript file $filename
-		} 
+		} elseif {$Simulator == "GHDL"} {
+			#Nothing to do
+		} else {
+			puts "Unsupported Simulator - sal_set_transcript_file(): $Simulator"
+		}		
 		variable TranscriptFile [file normalize $filename]
 	}	
 	
-	proc version_specific_flags {} {
+	proc sal_clean_transcript {} {
+		variable Simulator
+		sal_transcript_off
+		if {$Simulator == "GHDL"} {
+			file delete ./Transcript.transcript
+			sal_set_transcript_file ./Transcript.transcript
+			return
+		} elseif {$Simulator == "Modelsim"} {
+			sal_set_transcript_file ./Dummy.transcript
+			set bm [batch_mode]
+			if {$bm == 0} {
+				file delete ./Transcript.transcript
+			}
+			sal_set_transcript_file ./Transcript.transcript
+			file delete ./Dummy.transcript
+		} else {
+			puts "Unsupported Simulator - sal_clean_transcript(): $Simulator"
+		}
+		sal_transcript_on
+	}
+		
+	
+	proc sal_version_specific_flags {} {
 		variable Simulator
 		variable SimulatorVersion
 		set args ""
@@ -76,39 +110,17 @@ namespace eval psi::sim {
 			if {[expr $SimulatorVersion < 10.7]} {
 				set args "$args -novopt"
 			}			
+		} elseif {$Simulator == "GHDL"} {
+			#Nothing to do
+		} else {
+			puts "Unsupported Simulator - sal_version_specific_flags(): $Simulator"
 		}
+		
 		return $args
 	}
-
-	#################################################################
-	# Interface Functions (exported)
-	#################################################################	
-	# Initialize PSI Simulation Package. This must be called as first command to use the library.
-	#
-	# -ghdl		Use GHDL instead of modelsim (modelsim is default)
-	proc init {args} {
-		puts "Initialize PsiSim"
-		set argList [split $args]
-		set simulatorType "Modelsim"
-		set i 0		
-		while {$i < [llength $argList]} {
-			set thisArg [lindex $argList $i]
-			if {$thisArg == "-ghdl"} {
-				set simulatorType "GHDL"
-			} else {
-				print_log "WARNING: ignored argument $thisArg"
-				print_log ""
-			}
-			set i [expr $i + 1]
-		}
-		variable Simulator $simulatorType
-		variable Libraries [list]
-		variable Sources [list]
-		variable TbRuns [list]
-		variable CompileSuppress ""
-		variable RunSuppress ""
-		variable CurrentLib "NoCurrentLibrary"
-		#Simulator specific initialization
+	
+	proc sal_init_simulator {} {
+		variable Simulator
 		if {$Simulator == "Modelsim"} {
 			#The vsim -version command does not return the version but write it to stdout. Therefore this is
 			#.. forwareded to a file and read back from there. A sleep is required because writing the
@@ -126,9 +138,137 @@ namespace eval psi::sim {
 			regexp {\s([0-9\.]+)\s} $versionStr dummy versionNr
 			variable SimulatorVersion $versionNr
 			puts "ModelsimVersion: $versionNr"
+		} elseif {$Simulator == "GHDL"} {
+			variable SimulatorVersion "NotImplementedForGhdl"
 		} else {
-			variable SimulatorVersion "NotImplementedForThisSimulator"
+			puts "Unsupported Simulator - sal_init_simulator(): $Simulator"
 		}
+	}
+	
+	proc sal_clean_lib {lib} {
+		variable Simulator
+		if {$Simulator == "Modelsim"} {
+			vlib $lib
+			vdel -all -lib $lib
+			vlib $lib
+		} elseif {$Simulator == "GHDL"} {
+			file delete -force $lib
+			file mkdir $lib
+		} else {
+			puts "Unsupported Simulator - sal_clean_lib(): $Simulator"
+		}
+	}
+	
+	proc sal_compile_file {lib path language langVersion fileOptions} {
+		variable Simulator
+		variable CompileSuppress 
+		set vFlags [sal_version_specific_flags]
+		if {$Simulator == "Modelsim"} {			
+			set args "-work $lib $vFlags -suppress $CompileSuppress $fileOptions -quiet $path"
+			if {$language == "vhdl"} {
+				lappend args "-$langVersion"
+				vcom {*}$args
+			} else {
+				lappend args "-incr"
+				vlog {*}$args
+			}
+		} elseif {$Simulator == "GHDL"} {
+			if {$language == "vhdl"} {
+				if {$langVersion != "2008"} {
+					sal_print_log "ERROR: VHDL Version $langVersion not supported for GHDL"
+				}
+				exec ghdl -a --std=08 -frelaxed-rules -Wno-shared --work=$lib $path
+			} else {
+				sal_print_log "ERROR: Verilog currently not supported for GHDL"
+				sal_print_log ""
+			}
+		} else {
+			puts "Unsupported Simulator - sal_compile_file(): $Simulator"
+		}
+	}
+	
+	proc sal_exec_script {path cmd args} {
+		variable Simulator
+		set oldPath [pwd]
+		cd $path
+		sal_print_log "Running Pre Script"
+		if {$Simulator == "Modelsim"} {
+			sal_print_log [exec $cmd $args]
+		} elseif {$Simulator == "GHDL"} {
+			set outp [exec $cmd $args]
+			sal_print_log $outp
+		} else {
+			puts "Unsupported Simulator - sal_exec_script(): $Simulator"
+		}
+		cd $oldPath
+	}
+	
+	proc sal_run_tb {lib tbName tbArgs timeLimit suppressMsgNo} {
+		variable Simulator
+		if {$Simulator == "Modelsim"} {
+			set supp ""
+			if {$suppressMsgNo != ""} {
+				set supp +nowarn$suppressMsgNo
+			}
+			set cmd "vsim -quiet -t 1ps $supp $lib.$tbName $tbArgs"
+			eval $cmd
+			set StdArithNoWarnings 1
+			set NumericStdNoWarnings 1
+			if {$timeLimit != "None"} {
+				run $timeLimit
+			} else {
+				run -all
+			}
+			quit -sim
+		} elseif {$Simulator == "GHDL"} {
+			if {$tbArgs != ""} {
+				set tbArgs " $tbArgs"
+			}
+			if {$timeLimit != "None"} {
+				sal_print_log "Stop $timeLimit"
+				set stopTime " --stop-time=[string map {" " ""} $timeLimit]"
+			} else {
+				set stopTime ""
+			}
+			set cmd "ghdl --elab-run --std=08 -frelaxed-rules -Wno-shared --work=$lib $tbName$tbArgs$stopTime --ieee-asserts=disable "
+			sal_print_log $cmd
+			set outp [eval "exec $cmd"]
+			sal_print_log $outp
+		} else {
+			puts "Unsupported Simulator - sal_run_tb(): $Simulator"
+		}
+	}
+
+	#################################################################
+	# Interface Functions (exported)
+	#################################################################	
+	# Initialize PSI Simulation Package. This must be called as first command to use the library.
+	#
+	# -ghdl		Use GHDL instead of modelsim (modelsim is default)
+	proc init {args} {
+		puts "Initialize PsiSim"
+		set argList [split $args]
+		variable Simulator "Modelsim"
+		set i 0		
+		while {$i < [llength $argList]} {
+			set thisArg [lindex $argList $i]
+			if {$thisArg == "-ghdl"} {
+				variable Simulator "GHDL"
+			} else {
+				sal_print_log "WARNING: ignored argument $thisArg"
+				sal_print_log ""
+			}
+			set i [expr $i + 1]
+		}
+		variable Libraries [list]
+		variable Sources [list]
+		variable TbRuns [list]
+		variable CompileSuppress ""
+		variable RunSuppress ""
+		variable CurrentLib "NoCurrentLibrary"
+		#Simulator specific initialization
+		sal_init_simulator
+		#Clean transcript
 		clean_transcript
 	}
 	namespace export init
@@ -220,8 +360,8 @@ namespace eval psi::sim {
 				set thisArg [lindex $argList $i]
 				set options $thisArg
 			} else {
-				print_log "WARNING: ignored argument $thisArg"
-				print_log ""
+				sal_print_log "WARNING: ignored argument $thisArg"
+				sal_print_log ""
 			}
 			set i [expr $i + 1]
 		}
@@ -241,7 +381,7 @@ namespace eval psi::sim {
 				set ePath [dict get $entry PATH]
 				set eLib [dict get $entry LIBRARY]
 				if {($path == $ePath) && ($tgtLib == $eLib)} {
-					print_log "WARNING: file $ePath already added to library $eLib" 
+					sal_print_log "WARNING: file $ePath already added to library $eLib" 
 				}
 			}
 			lappend Sources $ThisSrc
@@ -268,25 +408,17 @@ namespace eval psi::sim {
 				set thisArg [lindex $argList $i]
 				set Library $thisArg
 			} else {
-				print_log "WARNING: ignored argument $thisArg"
-				print_log ""
+				sal_print_log "WARNING: ignored argument $thisArg"
+				sal_print_log ""
 			}
 			set i [expr $i + 1]
 		}	
 		#Clean
 		variable Libraries
-		variable Simulator
 		foreach lib $Libraries {
 			if {($Library == "All-Libraries") || ($Library == $lib)} {
-				print_log "cleanup $lib"
-				if {$Simulator == "Modelsim"} {
-					vlib $lib
-					vdel -all -lib $lib
-					vlib $lib
-				} elseif {$Simulator == "GHDL"} {
-					file delete -force $lib
-					file mkdir $lib
-				}
+				sal_print_log "cleanup $lib"
+				sal_clean_lib $lib
 			}
 		}
 	}
@@ -327,8 +459,8 @@ namespace eval psi::sim {
 				set thisArg [lindex $argList $i]
 				set contains $thisArg			
 			} else {
-				print_log "WARNING: ignored argument $thisArg"
-				print_log ""
+				sal_print_log "WARNING: ignored argument $thisArg"
+				sal_print_log ""
 			}
 			set i [expr $i + 1]
 		}
@@ -339,7 +471,6 @@ namespace eval psi::sim {
 		#Compile
 		variable CompileSuppress 
 		variable Sources
-		variable Simulator
 		foreach file $Sources {
 			set thisFileLib [dict get $file LIBRARY]
 			set thisFileTag [dict get $file TAG]
@@ -357,25 +488,8 @@ namespace eval psi::sim {
 				continue
 			}
 			#Execute compilation
-			print_log "$thisFileLib - Compile [file tail $thisFilePath]"
-			if {$Simulator == "Modelsim"} {
-				set vFlags [version_specific_flags]
-				set args "-work $thisFileLib $vFlags -suppress $CompileSuppress $thisFileOptions -quiet $thisFilePath"
-				if {$thisFileLanguage == "vhdl"} {
-					lappend args "-$thisFileVersion"
-					vcom {*}$args
-				} else {
-					lappend args "-incr"
-					vlog {*}$args
-				}
-			} elseif {$Simulator == "GHDL"} {
-				if {$thisFileLanguage == "vhdl"} {
-					exec ghdl -a --std=08 -frelaxed-rules -Wno-shared --work=$thisFileLib $thisFilePath
-				} else {
-					print_log "ERROR: Verilog currently not supported for GHDL"
-					print_log ""
-				}
-			}
+			sal_print_log "$thisFileLib - Compile [file tail $thisFilePath]"
+			sal_compile_file $thisFileLib $thisFilePath $thisFileLanguage $thisFileVersion $thisFileOptions
 		}
 	}
 	#Wrapper to prevent name clash with modelsim "compile"
@@ -485,22 +599,7 @@ namespace eval psi::sim {
 	
 	# Internal Function
 	proc clean_transcript {} {
-		variable Simulator
-		transcript_off
-		if {$Simulator == "GHDL"} {
-			file delete ./Transcript.transcript
-			transcript_file ./Transcript.transcript
-			return
-		} elseif {$Simulator == "Modelsim"} {
-			transcript_file ./Dummy.transcript
-			set bm [batch_mode]
-			if {$bm == 0} {
-				file delete ./Transcript.transcript
-			}
-			transcript_file ./Transcript.transcript
-			file delete ./Dummy.transcript
-		}
-		transcript_on
+		sal_clean_transcript
 	}
 	
 	# Check if the transcript file contains a specific error string. Note that the string "Fatal:" is also interpreted as error.
@@ -508,7 +607,7 @@ namespace eval psi::sim {
 	# @param errorString	Error string to search for (should be included in all error messages)
 	proc run_check_errors {errorString} {
 		#Read transcript
-		transcript_off
+		sal_transcript_off
 		set transcriptFile [open "./Transcript.transcript" r]
 		set transcriptContent [read "$transcriptFile"]; list
 		close $transcriptFile
@@ -517,12 +616,12 @@ namespace eval psi::sim {
 		#Search for string
 		set found [regexp -nocase $errorString $transcriptContent]
 		set foundFatal [regexp -nocase {Fatal:} $transcriptContent]
-		print_log $found
-		print_log $foundFatal
+		sal_print_log $found
+		sal_print_log $foundFatal
 		if {($found == 1) || ($foundFatal == 1)} {
-			print_log "!!! ERRORS OCCURED IN SIMULATIONS !!!"		
+			sal_print_log "!!! ERRORS OCCURED IN SIMULATIONS !!!"		
 		} else {
-			print_log "SIMULATIONS COMPLETED SUCCESSFULLY"
+			sal_print_log "SIMULATIONS COMPLETED SUCCESSFULLY"
 		}
 	}
 	namespace export run_check_errors
@@ -563,8 +662,8 @@ namespace eval psi::sim {
 				set thisArg [lindex $argList $i]
 				set contains $thisArg
 			} else {
-				print_log "WARNING: ignored argument $thisArg"
-				print_log ""
+				sal_print_log "WARNING: ignored argument $thisArg"
+				sal_print_log ""
 			}
 			set i [expr $i + 1]
 		}
@@ -588,88 +687,42 @@ namespace eval psi::sim {
 			if {($contains != "All-regex") && ([string first $contains $runName] == -1)} {
 				continue
 			}
-			print_log ""
-			print_log "******************************************************"
-			print_log "*** Run $runLib.$runName"
-			print_log "******************************************************"
+			sal_print_log ""
+			sal_print_log "******************************************************"
+			sal_print_log "*** Run $runLib.$runName"
+			sal_print_log "******************************************************"
             
             if {($skip == $Simulator) || ($skip == "all")} {
-                print_log "!!! Skipped for '$skip' !!!"
+                sal_print_log "!!! Skipped for '$skip' !!!"
                 continue
             }
 		
 			#Execute pre-script if required
 			set PsCmd [dict get $run PRESCRIPT_CMD]
-			set PsPath [dict get $run PRESCRIPT_PATH]	
-			set PsArgs [dict get $run PRESCRIPT_ARGS]				
+			set PsPath [dict get $run PRESCRIPT_PATH]
+			set PsArgs [dict get $run PRESCRIPT_ARGS]
 			if {($PsCmd != "")} {
-				set oldPath [pwd]
-				cd $PsPath
-				print_log "Running Pre Script"
-				if {$Simulator == "Modelsim"} {
-					print_log [exec $PsCmd $PsArgs]
-				} elseif {$Simulator == "GHDL"} {
-					set outp [exec $PsCmd $PsArgs]
-					print_log $outp
-				}
-				cd $oldPath
+				sal_exec_script $PsPath $PsCmd $PsArgs
 			}
+			
 			#Execute TB for all arguments
-			print_log "Running Simulation"
+			sal_print_log "Running Simulation"
 			set allArgLists [dict get $run TB_ARGS]
 			set timeLimit [dict get $run TIME_LIMIT]
 			foreach tbArgs $allArgLists {
-				#The set/eval combination is a workaroudn for problems of modelsim with argument parsing...
-				set supp ""
-				if {$RunSuppress != ""} {
-					set supp +nowarn$RunSuppress
-				}
-				if {$Simulator == "Modelsim"} {
-					set cmd "vsim -quiet -t 1ps $supp $runLib.$runName $tbArgs"
-					eval $cmd
-					set StdArithNoWarnings 1
-					set NumericStdNoWarnings 1
-					if {$timeLimit != "None"} {
-						run $timeLimit
-					} else {
-						run -all
-					}
-					quit -sim
-				} elseif {$Simulator == "GHDL"} {
-					if {$tbArgs != ""} {
-						set tbArgs " $tbArgs"
-					}
-					if {$timeLimit != "None"} {
-						print_log "Stop $timeLimit"
-						set stopTime " --stop-time=[string map {" " ""} $timeLimit]"
-					} else {
-						set stopTime ""
-					}
-					set cmd "ghdl --elab-run --std=08 -frelaxed-rules -Wno-shared --work=$runLib $runName$tbArgs$stopTime --ieee-asserts=disable "
-					print_log $cmd
-					set outp [eval "exec $cmd"]
-					print_log $outp
-				}				
+				#Tun TB
+				sal_run_tb $runLib $runName $tbArgs $timeLimit $RunSuppress
 			}
 			#Execute pre-script if required
 			set PsCmd [dict get $run POSTSCRIPT_CMD]
-			set PsPath [dict get $run POSTSCRIPT_PATH]	
-			set PsArgs [dict get $run POSTSCRIPT_ARGS]				
+			set PsPath [dict get $run POSTSCRIPT_PATH]
+			set PsArgs [dict get $run POSTSCRIPT_ARGS]
 			if {($PsCmd != "")} {
-				set oldPath [pwd]
-				cd $PsPath
-				print_log "Running Post Script"
-				if {$Simulator == "Modelsim"} {
-					print_log [exec $PsCmd $PsArgs]
-				} elseif {$Simulator == "GHDL"} {
-					set outp [exec $PsCmd $PsArgs]
-					print_log $outp
-				}
-				cd $oldPath
+				sal_exec_script $PsPath $PsCmd $PsArgs
 			}		
 			
 		}
-		transcript_off
+		sal_transcript_off
 	}
 	namespace export run_tb	
 }
