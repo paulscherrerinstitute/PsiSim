@@ -1,3 +1,8 @@
+## 2.2.0
+
+* Added Features
+  * Vivado simulator is now also supported
+
 ## 2.1.0
 
 * Added Features

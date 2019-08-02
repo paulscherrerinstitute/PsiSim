@@ -13,11 +13,11 @@ See [Changelog](Changelog.md)
 See [Command Reference](CommandRef.md)
 
 ## Features
-This TCL framework allows easily creating regression tests using modelsim. Files or groups of files can
+This TCL framework allows easily creating regression tests using modelsim, VHDL and Vivado-Simulator. Files or groups of files can
 be compiled by a single command, full regression tests can be run easily and results of testbenches can be 
 parsed automatically.
 
-In contrast to modelsim projects, simulation scripts written using this TCL package are version control friendly and
+In contrast to modelsim projects and Vivado projects, simulation scripts written using this TCL package are version control friendly and
 easily mergable.
 
 The framework allows running the same simulations using either Modelsim, GHDL or Vivado. See [Command Reference](CommandRef.md) for details.
