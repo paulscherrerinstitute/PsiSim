@@ -297,6 +297,22 @@ namespace eval psi::sim {
 		}
 	}
 
+	proc sal_launch_tb {lib tbName tbArgs suppressMsgNo} {
+		variable Simulator
+		if {$Simulator == "Modelsim"} {
+			set supp ""
+			if {$suppressMsgNo != ""} {
+				set supp +nowarn$suppressMsgNo
+			}
+			set cmd "vsim -quiet -t 1ps -msgmode both $supp $lib.$tbName $tbArgs"
+			eval $cmd
+			set StdArithNoWarnings 1
+			set NumericStdNoWarnings 1
+		} else {
+			puts "ERROR: Unsupported Simulator - sal_launch_tb(): $Simulator"
+		}
+	}
+
 	#################################################################
 	# Interface Functions (exported)
 	#################################################################	
@@ -785,4 +801,101 @@ namespace eval psi::sim {
 		sal_transcript_off
 	}
 	namespace export run_tb	
+	
+	# Launch a testbench and keep the simulator window open for interactive debugging. Because this is meant for
+	# interactive debugging and not for regression test, neither pre- nor post-scripts are ran.
+	# By default, the TB is run with the default generic values from the sources. Alternatively the user can choose
+	# the generics combination to used (if specified with tb_run_add_arguments).
+	# The test-run is only launched but not executed. Execution is controlled interactively.
+	#
+	# Variable Arguments:
+	# -contains <str>	Run only if testbench name contains a given string (required!)
+	# -argidx   <int>	Index of the arguments from tb_run_add_arguments (0 = use first argument-list)
+	#
+	# Note that currently this command is only supported for Modelsim
+	proc launch_tb {args} {
+	
+		#Only Modelsim is supported currently for this debug command
+		variable Simulator
+		if {"Modelsim" != $Simulator} {
+			sal_print_log "ERROR: launch_tb: this command is only implemented for Modelsim"
+			return
+		}	
+
+		#Parse Arguments
+		set contains "All-regex"
+		set argidx "default"
+		set argList [split $args]
+		set i 0		
+		while {$i < [llength $argList]} {
+			set thisArg [lindex $argList $i]
+			if {$thisArg == "-contains"} {
+				set i [expr $i + 1]
+				set thisArg [lindex $argList $i]
+				set contains $thisArg
+			} elseif {$thisArg == "-argidx"} {
+				set i [expr $i + 1]
+				set thisArg [lindex $argList $i]
+				set argidx $thisArg
+			} else {
+				sal_print_log "WARNING: ignored argument $thisArg"
+				sal_print_log ""
+			}
+			set i [expr $i + 1]
+		}
+
+		#Check Arguments
+		if {$contains == "All-regex"} {
+			sal_print_log "ERROR: launch_tb: -contains argument is required"
+			return
+		}
+		
+		#Launch
+		variable TbRuns
+		variable RunSuppress
+		foreach run $TbRuns {
+			#Check if TB should be run
+			set runLib [dict get $run TB_LIB]
+			set runName [dict get $run TB_NAME]
+            set skip [dict get $run SKIP]
+			set allArgLists [dict get $run TB_ARGS]
+			if {[string first $contains $runName] == -1} {
+				continue
+			}
+			sal_print_log ""
+			sal_print_log "******************************************************"
+			sal_print_log "*** Launch $runLib.$runName"
+			sal_print_log "******************************************************"
+            
+			#Check if this TB run is not skipped
+            if {($skip == $Simulator) || ($skip == "all")} {
+                sal_print_log "!!! Skipped for '$skip' !!!"
+                return
+            }
+			
+			#Get argument set
+			set argListLength [llength $allArgLists]
+			if {$argidx == "default"} {
+				set argsToUse [list ""]
+			} elseif {$argidx >= $argListLength} {
+				set maxIdx [expr $argListLength-1]
+				sal_print_log "ERROR: launch_tb: -argidx out of range 0 ... $maxIdx"
+				return
+			} else {
+				set argsToUse [lindex $allArgLists $argidx]
+			}
+					
+			#Execute TB for arguments chosen
+			sal_print_log "Launching Simulation"			
+			#launch TB
+			sal_launch_tb $runLib $runName $argsToUse $RunSuppress
+
+			#Only do one TB, return after it was quit
+			return			
+		}
+		
+		#If we arrive here, no TB matched to -contains string
+		sal_print_log "ERROR: launch_tb: -contains <str> did not match any tb_runs!"
+	}
+	namespace export launch_tb	
 }

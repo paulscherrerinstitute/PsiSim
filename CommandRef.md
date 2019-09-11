@@ -28,6 +28,7 @@ namespace import psi::sim::*
  * [compile_files](#compile_files)
  * [run_tb](#run_tb)
  * [run_check_errors] (#run_check_errors)
+ * [launch_tb] (#launch_tb)
 
 ## General Commands
 
@@ -485,3 +486,34 @@ Note that all libraries use the error pattern ###ERROR###.
     </tr>
 </table>
 
+### launch_tb
+**Usage**
+```
+launch_tb [-contains <str>] [-argidx <index>]
+```
+
+**Description**
+This command launches the specified TB run but it does not execute it. Instead it stops after launching, so the user can execute the simulation interactively and view the waveform. So this command is intended for interactive debugging.
+
+The user can optionally choose to use a specific set of testbench arguments (see [tb_run_add_arguments](#tb_run_add_arguments)) by using the *-argidx* option. If the option is not used, the testbench is started with the default generics from the source code.
+
+*This command is currently only implemented for Modelsim*.
+
+**Parameters**
+<table>
+    <tr>
+      <th width="200"><b>Parameter</b></th>
+      <th align="center" width="80"><b>Optional</b></th>
+      <th align="right"><b>Description</b></th>
+    </tr>
+    <tr>
+      <td> -contains </td>
+      <td> No </td>
+      <td> Only execute testbenches that contain a given string in their name </td>
+    </tr>
+    <tr>
+      <td> -argidx </td>
+      <td> Yes </td>
+      <td> Index of the TB arguments to use (see [tb_run_add_arguments](#tb_run_add_arguments)). Index is zero based (i.e. passing 0 leads to the first argument set being used). If this option is omitted, the testbench is started with its default arguments as given in the source code. </td>
+    </tr>    
+</table>
