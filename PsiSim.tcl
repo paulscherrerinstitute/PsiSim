@@ -222,7 +222,7 @@ namespace eval psi::sim {
 			if {$suppressMsgNo != ""} {
 				set supp +nowarn$suppressMsgNo
 			}
-			set cmd "vsim -quiet -t 1ps $supp $lib.$tbName $tbArgs"
+			set cmd "vsim -quiet -t 1ps -msgmode both $supp $lib.$tbName $tbArgs"
 			eval $cmd
 			set StdArithNoWarnings 1
 			set NumericStdNoWarnings 1
