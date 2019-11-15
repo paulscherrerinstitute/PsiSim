@@ -1,3 +1,11 @@
+## 2.3.0
+
+* Added Features
+  * Added *launch\_tb* command
+  * Show message icons in Modelsim
+* Bugfixes
+  * Made GHDL more permissive to better match Modelsim behavior
+
 ## 2.2.0
 
 * Added Features
