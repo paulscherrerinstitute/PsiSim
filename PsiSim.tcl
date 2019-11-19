@@ -767,8 +767,7 @@ namespace eval psi::sim {
 			sal_print_log "******************************************************"
 			sal_print_log "*** Run $runLib.$runName"
 			sal_print_log "******************************************************"
-            
-            if {($skip == $Simulator) || ($skip == "all")} {
+            if {([lsearch $skip $Simulator] != -1) || ($skip == "all")} {
                 sal_print_log "!!! Skipped for '$skip' !!!"
                 continue
             }

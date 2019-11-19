@@ -295,6 +295,8 @@ This command allows skipping the testbench for all simulators or only for one si
 
 The command must be called between the [create_tb_run](#create_tb_run) and the [add_tb_run](#add_tb_run) commands.
 
+For skipping a run for multiple simulators, use teh form *tb_run_skip "Vivado Ghdl"*.
+
 **Parameters**
 <table>
     <tr>

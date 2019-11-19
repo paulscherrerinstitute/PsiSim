@@ -1,3 +1,8 @@
+## 2.3.1
+
+* Bugfixes
+  * Made *tb\_run\_skip* command working for multiple simulators
+
 ## 2.3.0
 
 * Added Features
