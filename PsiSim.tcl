@@ -178,7 +178,7 @@ namespace eval psi::sim {
 				if {$langVersion != "2008"} {
 					sal_print_log "ERROR: VHDL Version $langVersion not supported for GHDL"
 				}
-				exec ghdl -a --std=08 -frelaxed-rules -Wno-shared -Wno-hide --work=$lib $path
+				exec ghdl -a --std=08 -frelaxed-rules -Wno-shared -Wno-hide --work=$lib --workdir=$lib $path
 			} else {
 				sal_print_log "ERROR: Verilog currently not supported for GHDL"
 				sal_print_log ""
@@ -329,6 +329,7 @@ namespace eval psi::sim {
 	# Initialize PSI Simulation Package. This must be called as first command to use the library.
 	#
 	# -ghdl		Use GHDL instead of modelsim (modelsim is default)
+	# -vivado	Use Vivado Simulator instead of modelsim (modelsim is default)
 	proc init {args} {
 		puts "Initialize PsiSim"
 		set argList [split $args]
