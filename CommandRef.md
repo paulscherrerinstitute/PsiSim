@@ -10,37 +10,37 @@ namespace import psi::sim::*
 
 # Command Links
 * General Commands
- * [init](#init)  
+  * [init](#init)  
 * Configuration Commands
- * [add_library](#add_library)  
- * [add_sources](#add_sources)  
- * [create_tb_run](#create_tb_run)  
- * [add_tb_run](#add_tb_run)  
- * [tb_run_add_arguments](#tb_run_add_arguments)  
- * [tb_run_add_time_limit](#tb_run_add_time_limit)  
- * [tb_run_add_pre_script](#tb_run_add_pre_script)  
- * [tb_run_add_post_script](#tb_run_add_post_script)  
- * [tb_run_skip](#tb_run_skip)  
- * [compile_suppress](#compile_suppress)  
- * [run_suppress](#run_suppress)  
+  * [add_library](#add_library)  
+  * [add_sources](#add_sources)  
+  * [create_tb_run](#create_tb_run)  
+  * [add_tb_run](#add_tb_run)  
+  * [tb_run_add_arguments](#tb_run_add_arguments)  
+  * [tb_run_add_time_limit](#tb_run_add_time_limit)  
+  * [tb_run_add_pre_script](#tb_run_add_pre_script)  
+  * [tb_run_add_post_script](#tb_run_add_post_script)  
+  * [tb_run_skip](#tb_run_skip)  
+  * [compile_suppress](#compile_suppress)  
+  * [run_suppress](#run_suppress)  
 * Run Commands
- * [clean_libraries](#clean_libraries)
- * [compile_files](#compile_files)
- * [run_tb](#run_tb)
- * [run_check_errors](#run_check_errors)
- * [launch_tb](#launch_tb)
+  * [clean_libraries](#clean_libraries)
+  * [compile_files](#compile_files)
+  * [run_tb](#run_tb)
+  * [run_check_errors](#run_check_errors)
+  * [launch_tb](#launch_tb)
 
 ## General Commands
 
 ### init
 **Usage**
 ```
-init [-ghdl]
+init [-ghdl|-vivado]
 ```
 
 **Description**  
 This command clears the PSI simulation environment. This means all libraries,
-testbenches and files added are removed. As a result this command shoul be called
+testbenches and files added are removed. As a result this command should be called
 once in every script before using any other commands.
 
 **Parameters**  
@@ -54,6 +54,11 @@ once in every script before using any other commands.
       <td> -ghdl </td>
       <td> Yes </td>
       <td> Use GHDL instead of Modelsim (if the parameter is not given, Modelsim is used). For Modelsim, all commands must be executed in the Modelsim TCL shell. For GHDL, a standalone TCL shell (e.g. Active TCL) must be used </td>
+    </tr>
+    <tr>
+      <td> -vivado </td>
+      <td> Yes </td>
+      <td> Use Vivado Simulator instead of Modelsim (if the parameter is not given, Modelsim is used). All commands must be executed in the Vivado TCL shell. </td>
     </tr>
 </table>
 
@@ -491,15 +496,14 @@ Note that all libraries use the error pattern ###ERROR###.
 ### launch_tb
 **Usage**
 ```
-launch_tb -contains <str> [-argidx <index>] [-wave [<file>]]
+launch_tb -contains <str> [-argidx <index>] [-wave [<file>]] [-show]
 ```
 
 **Description**
-This command launches the specified TB run but it does not execute it. Instead it stops after launching, so the user can execute the simulation interactively and view the waveform. So this command is intended for interactive debugging.
+This command launches the specified TB run but it does not execute it (without the -wave and -show options used). Instead it stops after launching, so the user can execute the simulation interactively and view the waveform. So this command is intended for interactive debugging.
 
 The user can optionally choose to use a specific set of testbench arguments (see [tb_run_add_arguments](#tb_run_add_arguments)) by using the *-argidx* option. If the option is not used, the testbench is started with the default generics from the source code.
 
-*This command is currently only implemented for Modelsim*.
 
 **Parameters**
 <table>
@@ -521,6 +525,11 @@ The user can optionally choose to use a specific set of testbench arguments (see
     <tr>
       <td> -wave </td>
       <td> Yes </td>
-      <td> Optionally a modelsim do-file can be passed for a desired waveform view. In case -wave is passed without argument, all signals are added to the waveform, the simulation is run and the zoom is set to the complete run.</td>
+      <td> Modelsim: Optionally a do-file can be passed for a desired waveform view. In case -wave is passed without argument, all signals are added to the waveform, the simulation is run and the zoom is set to the complete run. <br> GHDL: When executing this option in GHDL, a vcd file is generated with the naming pattern <tb_name><argidx|default>.vcd. The parameter <file> is not implemented in GHDL.</td>
+    </tr>   
+    <tr>
+      <td> -show </td>
+      <td> Yes </td>
+      <td> GTKwave is opened (forked) with the generated vcd file. Only implemented in GHDL.</td>
     </tr>    
 </table>

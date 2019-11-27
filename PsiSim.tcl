@@ -215,7 +215,7 @@ namespace eval psi::sim {
 		cd $oldPath
 	}
 	
-	proc sal_run_tb {lib tbName tbArgs timeLimit suppressMsgNo} {
+	proc sal_run_tb {lib tbName tbArgs timeLimit suppressMsgNo {wave ""}} {
 		variable Simulator
 		if {$Simulator == "Modelsim"} {
 			set supp ""
@@ -242,7 +242,10 @@ namespace eval psi::sim {
 			} else {
 				set stopTime ""
 			}
-			set cmd "ghdl --elab-run --std=08 -frelaxed-rules -Wno-shared --work=$lib $tbName$tbArgs$stopTime --ieee-asserts=disable "
+			if {$wave != ""} {
+				set wave "--vcd=$wave"
+			} 
+			set cmd "ghdl --elab-run --std=08 -frelaxed-rules -Wno-shared --work=$lib --workdir=$lib $tbName$tbArgs$stopTime $wave --ieee-asserts=disable "
 			sal_print_log $cmd
 			set outp [eval "exec $cmd"]
 			sal_print_log $outp
@@ -308,8 +311,8 @@ namespace eval psi::sim {
 			eval $cmd
 			set StdArithNoWarnings 1
 			set NumericStdNoWarnings 1
-			if {$wave != "none"} {
-				if {$wave != ""} {
+			if {$wave != ""} {
+				if {$wave != "all"} {
 					sal_print_log "Restoring Waveform View $wave"
 					set cmd "do $wave"
 				} else {
@@ -320,6 +323,15 @@ namespace eval psi::sim {
 			}
 		} else {
 			puts "ERROR: Unsupported Simulator - sal_launch_tb(): $Simulator"
+		}
+	}
+
+	proc sal_open_wave {wave} {
+		variable Simulator
+		if {$Simulator == "GHDL"} {
+			exec gtkwave -f $wave &
+		} else {
+			puts "ERROR: Unsupported Simulator - sal_open_wave(): $Simulator"
 		}
 	}
 
@@ -764,7 +776,7 @@ namespace eval psi::sim {
 			#Check if TB should be run
 			set runLib [dict get $run TB_LIB]
 			set runName [dict get $run TB_NAME]
-            set skip [dict get $run SKIP]
+			set skip [dict get $run SKIP]
 			if {($runLib != $Library) && ($Library != "All-Libraries")} {
 				continue
 			}
@@ -827,15 +839,16 @@ namespace eval psi::sim {
 	
 		#Only Modelsim is supported currently for this debug command
 		variable Simulator
-		if {"Modelsim" != $Simulator} {
-			sal_print_log "ERROR: launch_tb: this command is only implemented for Modelsim"
+		if {($Simulator != "Modelsim") && ($Simulator != "GHDL")} {
+			sal_print_log "ERROR: launch_tb: this command is only implemented for Modelsim and GHDL"
 			return
 		}	
 
 		#Parse Arguments
 		set contains "All-regex"
 		set argidx "default"
-		set wave "none"
+		set wave ""
+		set show ""
 		set argList [split $args]
 		set i 0		
 		while {$i < [llength $argList]} {
@@ -851,7 +864,15 @@ namespace eval psi::sim {
 			} elseif {$thisArg == "-wave"} {
 				set i [expr $i + 1]
 				set thisArg [lindex $argList $i]
-				set wave $thisArg
+				if {$thisArg == ""} {
+					set wave "all"
+				} else {  
+					set wave $thisArg
+				}
+			} elseif {$thisArg == "-show"} {
+				set i [expr $i + 1]
+				set thisArg [lindex $argList $i]
+				set show "enable"
 			} else {
 				sal_print_log "WARNING: ignored argument $thisArg"
 				sal_print_log ""
@@ -891,7 +912,7 @@ namespace eval psi::sim {
 			#Get argument set
 			set argListLength [llength $allArgLists]
 			if {$argidx == "default"} {
-				set argsToUse [list ""]
+				set argsToUse ""
 			} elseif {$argidx >= $argListLength} {
 				set maxIdx [expr $argListLength-1]
 				sal_print_log "ERROR: launch_tb: -argidx out of range 0 ... $maxIdx"
@@ -901,9 +922,23 @@ namespace eval psi::sim {
 			}
 					
 			#Execute TB for arguments chosen
-			sal_print_log "Launching Simulation"			
-			#launch TB
-			sal_launch_tb $runLib $runName $argsToUse $RunSuppress $wave
+			sal_print_log "Launching Simulation"
+			if {"Modelsim" == $Simulator} {
+				#Modelsim -> launch TB
+				sal_launch_tb $runLib $runName $argsToUse $RunSuppress $wave
+			}	
+			if {"GHDL" == $Simulator} {
+				set timeLimit [dict get $run TIME_LIMIT]
+				if {$wave != ""} {
+					set wavee "$runName\_$argidx\.vcd"
+					sal_print_log "Writing Waveform: $wave"
+				} 
+				#GHDL -> run TB
+				sal_run_tb $runLib $runName $argsToUse $timeLimit $RunSuppress $wave
+				if {$show != ""} {
+					sal_open_wave $wave
+				}
+			}
 
 			#Only do one TB, return after it was quit
 			return			
