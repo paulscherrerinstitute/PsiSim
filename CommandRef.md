@@ -27,8 +27,8 @@ namespace import psi::sim::*
  * [clean_libraries](#clean_libraries)
  * [compile_files](#compile_files)
  * [run_tb](#run_tb)
- * [run_check_errors] (#run_check_errors)
- * [launch_tb] (#launch_tb)
+ * [run_check_errors](#run_check_errors)
+ * [launch_tb](#launch_tb)
 
 ## General Commands
 
@@ -491,7 +491,7 @@ Note that all libraries use the error pattern ###ERROR###.
 ### launch_tb
 **Usage**
 ```
-launch_tb [-contains <str>] [-argidx <index>]
+launch_tb -contains <str> [-argidx <index>] [-wave [<file>]]
 ```
 
 **Description**
@@ -511,11 +511,16 @@ The user can optionally choose to use a specific set of testbench arguments (see
     <tr>
       <td> -contains </td>
       <td> No </td>
-      <td> Only execute testbenches that contain a given string in their name </td>
+      <td> Execute only the first testbench that contains the given string in its name </td>
     </tr>
     <tr>
       <td> -argidx </td>
       <td> Yes </td>
       <td> Index of the TB arguments to use (see [tb_run_add_arguments](#tb_run_add_arguments)). Index is zero based (i.e. passing 0 leads to the first argument set being used). If this option is omitted, the testbench is started with its default arguments as given in the source code. </td>
+    </tr>  
+    <tr>
+      <td> -wave </td>
+      <td> Yes </td>
+      <td> Optionally a modelsim do-file can be passed for a desired waveform view. In case -wave is passed without argument, all signals are added to the waveform, the simulation is run and the zoom is set to the complete run.</td>
     </tr>    
 </table>

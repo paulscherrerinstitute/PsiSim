@@ -297,7 +297,7 @@ namespace eval psi::sim {
 		}
 	}
 
-	proc sal_launch_tb {lib tbName tbArgs suppressMsgNo} {
+	proc sal_launch_tb {lib tbName tbArgs suppressMsgNo wave} {
 		variable Simulator
 		if {$Simulator == "Modelsim"} {
 			set supp ""
@@ -308,6 +308,16 @@ namespace eval psi::sim {
 			eval $cmd
 			set StdArithNoWarnings 1
 			set NumericStdNoWarnings 1
+			if {$wave != "none"} {
+				if {$wave != ""} {
+					sal_print_log "Restoring Waveform View $wave"
+					set cmd "do $wave"
+				} else {
+					sal_print_log "Adding all Signals to the Waveform View"
+					set cmd "add wave -r /*; run -all; wave zoom full"
+				}
+				eval $cmd
+			}
 		} else {
 			puts "ERROR: Unsupported Simulator - sal_launch_tb(): $Simulator"
 		}
@@ -824,6 +834,7 @@ namespace eval psi::sim {
 		#Parse Arguments
 		set contains "All-regex"
 		set argidx "default"
+		set wave "none"
 		set argList [split $args]
 		set i 0		
 		while {$i < [llength $argList]} {
@@ -836,6 +847,10 @@ namespace eval psi::sim {
 				set i [expr $i + 1]
 				set thisArg [lindex $argList $i]
 				set argidx $thisArg
+			} elseif {$thisArg == "-wave"} {
+				set i [expr $i + 1]
+				set thisArg [lindex $argList $i]
+				set wave $thisArg
 			} else {
 				sal_print_log "WARNING: ignored argument $thisArg"
 				sal_print_log ""
@@ -856,7 +871,7 @@ namespace eval psi::sim {
 			#Check if TB should be run
 			set runLib [dict get $run TB_LIB]
 			set runName [dict get $run TB_NAME]
-            set skip [dict get $run SKIP]
+			set skip [dict get $run SKIP]
 			set allArgLists [dict get $run TB_ARGS]
 			if {[string first $contains $runName] == -1} {
 				continue
@@ -865,13 +880,13 @@ namespace eval psi::sim {
 			sal_print_log "******************************************************"
 			sal_print_log "*** Launch $runLib.$runName"
 			sal_print_log "******************************************************"
-            
+
 			#Check if this TB run is not skipped
-            if {($skip == $Simulator) || ($skip == "all")} {
-                sal_print_log "!!! Skipped for '$skip' !!!"
-                return
-            }
-			
+			if {([lsearch $skip $Simulator] != -1) || ($skip == "all")} {
+				sal_print_log "!!! Skipped for '$skip' !!!"
+				continue
+			}
+
 			#Get argument set
 			set argListLength [llength $allArgLists]
 			if {$argidx == "default"} {
@@ -887,7 +902,7 @@ namespace eval psi::sim {
 			#Execute TB for arguments chosen
 			sal_print_log "Launching Simulation"			
 			#launch TB
-			sal_launch_tb $runLib $runName $argsToUse $RunSuppress
+			sal_launch_tb $runLib $runName $argsToUse $RunSuppress $wave
 
 			#Only do one TB, return after it was quit
 			return			
