@@ -533,3 +533,11 @@ The user can optionally choose to use a specific set of testbench arguments (see
       <td> GTKwave is opened (forked) with the generated vcd file. Only implemented in GHDL.</td>
     </tr>    
 </table>
+
+**GHDL/GTK Workflow**
+- Execute the first run with *-wave* and *-show* options
+- A gtkwave window opens -> forked to keep tclsh interaction active
+- Rerun the testbench in the tclsh **without** the *-show* option
+- Reload the waveform in the gtkwave menu: File -> Reload Waveform
+- Optional: Run with different -argidx to compare different waveforms
+
