@@ -1,3 +1,15 @@
+## 2.4.0
+
+* Added Features
+  * GHDL support for launch\_tb
+  * GTK support for launch\_tb
+  * Modelsim Waveform Format support (*.do)
+  * Modelsim Quick Start Waveform with -wave option without addtional arguments
+* Bugfixes
+  * Changed compile settings for GHDL to place data in library name named folder
+  * Make launch_tb with default arguments work (pass empty string)
+  * Option combinations in launch\_tb did not work when -wave was used without filename
+  
 ## 2.3.1
 
 * Bugfixes
