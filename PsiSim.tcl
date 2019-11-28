@@ -866,12 +866,13 @@ namespace eval psi::sim {
 				set thisArg [lindex $argList $i]
 				if {$thisArg == ""} {
 					set wave "all"
+				} elseif {$thisArg == "-show"} {  
+					set wave "all"
+					set show "enable"
 				} else {  
 					set wave $thisArg
 				}
 			} elseif {$thisArg == "-show"} {
-				set i [expr $i + 1]
-				set thisArg [lindex $argList $i]
 				set show "enable"
 			} else {
 				sal_print_log "WARNING: ignored argument $thisArg"
@@ -930,12 +931,12 @@ namespace eval psi::sim {
 			if {"GHDL" == $Simulator} {
 				set timeLimit [dict get $run TIME_LIMIT]
 				if {$wave != ""} {
-					set wavee "$runName\_$argidx\.vcd"
+					set wave "$runName\_$argidx\.vcd"
 					sal_print_log "Writing Waveform: $wave"
 				} 
 				#GHDL -> run TB
 				sal_run_tb $runLib $runName $argsToUse $timeLimit $RunSuppress $wave
-				if {$show != ""} {
+				if {$show == "enable"} {
 					sal_open_wave $wave
 				}
 			}
