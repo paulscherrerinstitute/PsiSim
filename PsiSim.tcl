@@ -243,9 +243,9 @@ namespace eval psi::sim {
 				set stopTime ""
 			}
 			if {$wave != ""} {
-				set wave "--vcd=$wave"
+				set wave " --vcd=$wave"
 			} 
-			set cmd "ghdl --elab-run --std=08 -frelaxed-rules -Wno-shared --work=$lib --workdir=$lib $tbName$tbArgs$stopTime $wave --ieee-asserts=disable "
+			set cmd "ghdl --elab-run --ieee=synopsys --std=08 -frelaxed-rules -Wno-shared --work=$lib $tbName$tbArgs$stopTime$wave --ieee-asserts=disable"
 			sal_print_log $cmd
 			set outp [eval "exec $cmd"]
 			sal_print_log $outp
