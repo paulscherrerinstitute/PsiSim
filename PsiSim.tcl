@@ -178,7 +178,7 @@ namespace eval psi::sim {
 				if {$langVersion != "2008"} {
 					sal_print_log "ERROR: VHDL Version $langVersion not supported for GHDL"
 				}
-				exec ghdl -a --std=08 -frelaxed-rules -Wno-shared -Wno-hide --work=$lib --workdir=$lib $path
+				exec ghdl -a --ieee=synopsys --std=08 -frelaxed-rules -Wno-shared -Wno-hide --work=$lib -P. $path
 			} else {
 				sal_print_log "ERROR: Verilog currently not supported for GHDL"
 				sal_print_log ""
