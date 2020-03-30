@@ -243,7 +243,7 @@ namespace eval psi::sim {
 				set stopTime ""
 			}
 			if {$wave != ""} {
-				set wave " --vcd=$wave"
+				set wave " --wave=$wave"
 			} 
 			set cmd "ghdl --elab-run --ieee=synopsys --std=08 -frelaxed-rules -Wno-shared --work=$lib $tbName$tbArgs$stopTime$wave --ieee-asserts=disable"
 			sal_print_log $cmd
@@ -931,7 +931,7 @@ namespace eval psi::sim {
 			if {"GHDL" == $Simulator} {
 				set timeLimit [dict get $run TIME_LIMIT]
 				if {$wave != ""} {
-					set wave "$runName\_$argidx\.vcd"
+					set wave "$runName\_$argidx\.ghw"
 					sal_print_log "Writing Waveform: $wave"
 				} 
 				#GHDL -> run TB
