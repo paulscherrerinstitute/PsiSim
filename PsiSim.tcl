@@ -178,7 +178,7 @@ namespace eval psi::sim {
 				if {$langVersion != "2008"} {
 					sal_print_log "ERROR: VHDL Version $langVersion not supported for GHDL"
 				}
-				exec ghdl -a --std=08 -frelaxed-rules -Wno-shared -Wno-hide --work=$lib --workdir=$lib $path
+				exec ghdl -a --ieee=synopsys --std=08 -frelaxed-rules -Wno-shared -Wno-hide --work=$lib -P. $path
 			} else {
 				sal_print_log "ERROR: Verilog currently not supported for GHDL"
 				sal_print_log ""
@@ -243,9 +243,9 @@ namespace eval psi::sim {
 				set stopTime ""
 			}
 			if {$wave != ""} {
-				set wave "--vcd=$wave"
+				set wave " --wave=$wave"
 			} 
-			set cmd "ghdl --elab-run --std=08 -frelaxed-rules -Wno-shared --work=$lib --workdir=$lib $tbName$tbArgs$stopTime $wave --ieee-asserts=disable "
+			set cmd "ghdl --elab-run --ieee=synopsys --std=08 -frelaxed-rules -Wno-shared --work=$lib $tbName$tbArgs$stopTime$wave --ieee-asserts=disable"
 			sal_print_log $cmd
 			set outp [eval "exec $cmd"]
 			sal_print_log $outp
@@ -931,7 +931,7 @@ namespace eval psi::sim {
 			if {"GHDL" == $Simulator} {
 				set timeLimit [dict get $run TIME_LIMIT]
 				if {$wave != ""} {
-					set wave "$runName\_$argidx\.vcd"
+					set wave "$runName\_$argidx\.ghw"
 					sal_print_log "Writing Waveform: $wave"
 				} 
 				#GHDL -> run TB
