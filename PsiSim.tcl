@@ -24,7 +24,8 @@ namespace eval psi::sim {
 	variable Simulator
 	variable SimulatorVersion
 	variable TranscriptFile
-	
+	variable CompiledLibPath
+
 	#################################################################
 	# Simulator Abstraction Layer (SAL)
 	#################################################################
@@ -39,12 +40,12 @@ namespace eval psi::sim {
 			#Transcript
 			set fo [open $TranscriptFile a]
 			puts $fo $text
-			close $fo			
+			close $fo
 		} else {
 			puts "ERROR: Unsupported Simulator - sal_print_log(): $Simulator"
 		}
 	}
-	
+
 	proc sal_transcript_off {} {
 		variable Simulator
 		if {$Simulator == "Modelsim"} {
@@ -55,7 +56,7 @@ namespace eval psi::sim {
 			puts "ERROR: Unsupported Simulator - sal_transcript_off(): $Simulator"
 		}
 	}
-	
+
 	proc sal_transcript_on {} {
 		variable Simulator
 		if {$Simulator == "Modelsim"} {
@@ -66,7 +67,7 @@ namespace eval psi::sim {
 			puts "ERROR: Unsupported Simulator - sal_transcript_on(): $Simulator"
 		}
 	}
-	
+
 	proc sal_set_transcript_file {filename} {
 		variable Simulator
 		if {$Simulator == "Modelsim"} {
@@ -75,10 +76,10 @@ namespace eval psi::sim {
 			#Nothing to do
 		} else {
 			puts "ERROR: Unsupported Simulator - sal_set_transcript_file(): $Simulator"
-		}		
+		}
 		variable TranscriptFile [file normalize $filename]
-	}	
-	
+	}
+
 	proc sal_clean_transcript {} {
 		variable Simulator
 		sal_transcript_off
@@ -99,8 +100,8 @@ namespace eval psi::sim {
 		}
 		sal_transcript_on
 	}
-		
-	
+
+
 	proc sal_version_specific_flags {} {
 		variable Simulator
 		variable SimulatorVersion
@@ -108,28 +109,28 @@ namespace eval psi::sim {
 		if {$Simulator == "Modelsim"} {
 			if {[expr $SimulatorVersion < 10.7]} {
 				set args "$args -novopt"
-			}			
+			}
 		} elseif {($Simulator == "GHDL") || ($Simulator == "Vivado")} {
 			#Nothing to do
 		} else {
 			puts "ERROR: Unsupported Simulator - sal_version_specific_flags(): $Simulator"
 		}
-		
+
 		return $args
 	}
-	
+
 	proc sal_init_simulator {} {
 		variable Simulator
 		if {$Simulator == "Modelsim"} {
 			#The vsim -version command does not return the version but write it to stdout. Therefore this is
 			#.. forwareded to a file and read back from there. A sleep is required because writing the
-			#.. file takes some time. 
+			#.. file takes some time.
 			#.. Modelsim prints a warning because the stdout is forwarded to a file. Unfortunately I could not
 			#.. find any way to suppress this warning (the forwarding is fully okay and expected).
 			puts ">>> Error expected ..."
 			vcom -version >tempVersion.txt
 			puts ">>> ... until here."
-			after 500			
+			after 500
 			set txtFile [open tempVersion.txt]; list
 			set versionStr [read $txtFile]; list
 			close $txtFile
@@ -140,12 +141,12 @@ namespace eval psi::sim {
 		} elseif {$Simulator == "GHDL"} {
 			variable SimulatorVersion "NotImplementedForGhdl"
 		} elseif {$Simulator == "Vivado"} {
-			variable SimulatorVersion "NotImplementedForvivado"			
+			variable SimulatorVersion "NotImplementedForvivado"
 		} else {
 			puts "ERROR: Unsupported Simulator - sal_init_simulator(): $Simulator"
 		}
 	}
-	
+
 	proc sal_clean_lib {lib} {
 		variable Simulator
 		if {$Simulator == "Modelsim"} {
@@ -159,12 +160,13 @@ namespace eval psi::sim {
 			puts "ERROR: Unsupported Simulator - sal_clean_lib(): $Simulator"
 		}
 	}
-	
+
 	proc sal_compile_file {lib path language langVersion fileOptions} {
 		variable Simulator
-		variable CompileSuppress 
+		variable CompileSuppress
+		variable CompiledLibPath
 		set vFlags [sal_version_specific_flags]
-		if {$Simulator == "Modelsim"} {			
+		if {$Simulator == "Modelsim"} {
 			set args "-work $lib $vFlags -suppress $CompileSuppress $fileOptions -quiet $path"
 			if {$language == "vhdl"} {
 				lappend args "-$langVersion"
@@ -178,12 +180,18 @@ namespace eval psi::sim {
 				if {$langVersion != "2008"} {
 					sal_print_log "ERROR: VHDL Version $langVersion not supported for GHDL"
 				}
-				exec ghdl -a --ieee=synopsys --std=08 -frelaxed-rules -Wno-shared -Wno-hide --work=$lib -P. $path
+				set options "--ieee=synopsys --std=08 -frelaxed-rules -Wno-shared -Wno-hide"
+				set searchLibs "-P."
+				if {$CompiledLibPath != ""} {
+					lappend searchLibs "-P$CompiledLibPath"
+				}
+				set ghdl_analyze [list ghdl -a {*}$options {*}$searchLibs --work=$lib $path]
+				exec {*}$ghdl_analyze
 			} else {
 				sal_print_log "ERROR: Verilog currently not supported for GHDL"
 				sal_print_log ""
 			}
-		} elseif {$Simulator == "Vivado"} {		
+		} elseif {$Simulator == "Vivado"} {
 			if {$language == "vhdl"} {
 				set langArg ""
 				if {$langVersion == "2008"} {
@@ -198,7 +206,7 @@ namespace eval psi::sim {
 			puts "ERROR: Unsupported Simulator - sal_compile_file(): $Simulator"
 		}
 	}
-	
+
 	proc sal_exec_script {path cmd args} {
 		variable Simulator
 		set oldPath [pwd]
@@ -214,7 +222,7 @@ namespace eval psi::sim {
 		}
 		cd $oldPath
 	}
-	
+
 	proc sal_run_tb {lib tbName tbArgs timeLimit suppressMsgNo {wave ""}} {
 		variable Simulator
 		if {$Simulator == "Modelsim"} {
@@ -244,7 +252,7 @@ namespace eval psi::sim {
 			}
 			if {$wave != ""} {
 				set wave " --wave=$wave"
-			} 
+			}
 			set cmd "ghdl --elab-run --ieee=synopsys --std=08 -frelaxed-rules -Wno-shared --work=$lib $tbName$tbArgs$stopTime$wave --ieee-asserts=disable"
 			sal_print_log $cmd
 			set outp [eval "exec $cmd"]
@@ -258,7 +266,7 @@ namespace eval psi::sim {
 			foreach lib $Libraries {
 				puts $fo "$lib=$lib\n"
 			}
-			close $fo	
+			close $fo
 			#Find generic overrides
 			set genericOverrides ""
 			foreach param $tbArgs {
@@ -285,16 +293,16 @@ namespace eval psi::sim {
 			} else {
 				puts $fo "run -all > $outputFile;"
 			}
-			puts $fo "exit" 
+			puts $fo "exit"
 			close $fo
 			set cmd "xsim psi_sim_snapshot -tclbatch $simTclName"
 			sal_print_log "$cmd"
-			eval "exec $cmd"	
+			eval "exec $cmd"
 			#Add aoutput to log
 			set fo [open $outputFile r]
 			sal_print_log [read $fo]
 			close $fo
-					
+
 		} else {
 			puts "ERROR: Unsupported Simulator - sal_run_tb(): $Simulator"
 		}
@@ -337,7 +345,7 @@ namespace eval psi::sim {
 
 	#################################################################
 	# Interface Functions (exported)
-	#################################################################	
+	#################################################################
 	# Initialize PSI Simulation Package. This must be called as first command to use the library.
 	#
 	# -ghdl		Use GHDL instead of modelsim (modelsim is default)
@@ -346,13 +354,18 @@ namespace eval psi::sim {
 		puts "Initialize PsiSim"
 		set argList [split $args]
 		variable Simulator "Modelsim"
-		set i 0		
+		variable CompiledLibPath ""
+		set i 0
 		while {$i < [llength $argList]} {
 			set thisArg [lindex $argList $i]
 			if {$thisArg == "-ghdl"} {
 				variable Simulator "GHDL"
 			} elseif {$thisArg == "-vivado"} {
 				variable Simulator "Vivado"
+			} elseif {$thisArg == "-compiled-libs"} {
+				set i [expr $i + 1]
+				set thisArg [lindex $argList $i]
+				variable CompiledLibPath $thisArg
 			} else {
 				sal_print_log "WARNING: ignored argument $thisArg"
 				sal_print_log ""
@@ -371,7 +384,7 @@ namespace eval psi::sim {
 		clean_transcript
 	}
 	namespace export init
-	
+
 	# Create a new VHDL library to compile files into
 	#
 	# @param lib	Library to create
@@ -381,12 +394,12 @@ namespace eval psi::sim {
 		variable CurrentLib $lib
 	}
 	namespace export add_library
-	
+
 	# Add one or more message numbers to the list of messages to ignore during compilation
 	#
 	# @param msgNos		One or more message numbers to suppress, speparated by comma
 	proc compile_suppress {msgNos} {
-		variable CompileSuppress 
+		variable CompileSuppress
 		set msgList [split $msgNos]
 		foreach msg $msgList {
 			#Only add to the list if it is not yet in the list
@@ -394,15 +407,15 @@ namespace eval psi::sim {
 			if {$exists == 0} {
 				variable CompileSuppress $CompileSuppress$msg,
 			}
-		}		
+		}
 	}
-	namespace export compile_suppress	
-	
+	namespace export compile_suppress
+
 	# Add one or more message numbers to the list of messages to ignore during simulation runs
 	#
 	# @param msgNos		One or more message numbers to suppress, speparated by comma
 	proc run_suppress {msgNos} {
-		variable RunSuppress 
+		variable RunSuppress
 		set msgList [split $msgNos]
 		foreach msg $msgList {
 			#Only add to the list if it is not yet in the list
@@ -412,8 +425,8 @@ namespace eval psi::sim {
 			}
 		}
 	}
-	namespace export run_suppress	
-	
+	namespace export run_suppress
+
 	# Add HDL source files (including testbenches)
 	#
 	# Variable Arguments:
@@ -435,7 +448,7 @@ namespace eval psi::sim {
 		set version "2008"
 		set options ""
 		set argList [split $args]
-		set i 0		
+		set i 0
 		while {$i < [llength $argList]} {
 			set thisArg [lindex $argList $i]
 			if {$thisArg == "-lib"} {
@@ -445,7 +458,7 @@ namespace eval psi::sim {
 			} elseif {$thisArg == "-tag"} {
 				set i [expr $i + 1]
 				set thisArg [lindex $argList $i]
-				set tag $thisArg	
+				set tag $thisArg
 			} elseif {$thisArg == "-language"} {
 				set i [expr $i + 1]
 				set thisArg [lindex $argList $i]
@@ -480,14 +493,14 @@ namespace eval psi::sim {
 				set ePath [dict get $entry PATH]
 				set eLib [dict get $entry LIBRARY]
 				if {($path == $ePath) && ($tgtLib == $eLib)} {
-					sal_print_log "WARNING: file $ePath already added to library $eLib" 
+					sal_print_log "WARNING: file $ePath already added to library $eLib"
 				}
 			}
 			lappend Sources $ThisSrc
-		}		
+		}
 	}
 	namespace export add_sources
-	
+
 	# Cleanup one or more libraries
 	#
 	# Variable Arguments:
@@ -497,7 +510,7 @@ namespace eval psi::sim {
 		#Parse Arguments
 		set Library "All-Libraries"
 		set argList [split $args]
-		set i 0		
+		set i 0
 		while {$i < [llength $argList]} {
 			set thisArg [lindex $argList $i]
 			if {$thisArg == "-all"} {
@@ -511,7 +524,7 @@ namespace eval psi::sim {
 				sal_print_log ""
 			}
 			set i [expr $i + 1]
-		}	
+		}
 		#Clean
 		variable Libraries
 		foreach lib $Libraries {
@@ -522,7 +535,7 @@ namespace eval psi::sim {
 		}
 	}
 	namespace export clean_libraries
-	
+
 	# Compile source files
 	#
 	# Variable Arguments:
@@ -538,7 +551,7 @@ namespace eval psi::sim {
 		set argList [split $args]
 		set clean false
 		set contains "All-regex"
-		set i 0		
+		set i 0
 		while {$i < [llength $argList]} {
 			set thisArg [lindex $argList $i]
 			if {$thisArg == "-all"} {
@@ -556,7 +569,7 @@ namespace eval psi::sim {
 			} elseif {$thisArg == "-contains"} {
 				set i [expr $i + 1]
 				set thisArg [lindex $argList $i]
-				set contains $thisArg			
+				set contains $thisArg
 			} else {
 				sal_print_log "WARNING: ignored argument $thisArg"
 				sal_print_log ""
@@ -568,7 +581,7 @@ namespace eval psi::sim {
 			clean_libraries -lib $Library
 		}
 		#Compile
-		variable CompileSuppress 
+		variable CompileSuppress
 		variable Sources
 		foreach file $Sources {
 			set thisFileLib [dict get $file LIBRARY]
@@ -597,22 +610,22 @@ namespace eval psi::sim {
 		eval "compile $jonedArgs"
 	}
 	namespace export compile_files
-	
+
 	# Creat a testbench run. A testbench run consists of a pre-script (run before TB), a post script (ran after TB) and optionally
-	# different arguments to pass to the TB for multiple simulations. 
+	# different arguments to pass to the TB for multiple simulations.
 	# Note that the TB run is only added with the separate command add_tb_run
 	#
 	# @param tb			Name of the testbench to run
 	# @param library	Name of the library the testbench is in. This parameter is optional, if it
-	#					is omitted, it is assumed the TB is in the last library created with add_library 
+	#					is omitted, it is assumed the TB is in the last library created with add_library
 	proc create_tb_run {tb {library "None"}} {
-	
+
 		#Select tb library
 		variable CurrentLib
 		set tbLib $library
 		if {$tbLib == "None"} {
 			set tbLib $CurrentLib
-		}	
+		}
 		#Implementation
 		variable ThisTbRun [dict create]
 		dict set ThisTbRun TB_NAME $tb
@@ -623,12 +636,12 @@ namespace eval psi::sim {
 		dict set ThisTbRun PRESCRIPT_ARGS ""
 		dict set ThisTbRun POSTSCRIPT_CMD ""
 		dict set ThisTbRun POSTSCRIPT_PATH "."
-		dict set ThisTbRun POSTSCRIPT_ARGS ""	
+		dict set ThisTbRun POSTSCRIPT_ARGS ""
 		dict set ThisTbRun TIME_LIMIT "None"
         dict set ThisTbRun SKIP "None"
 	}
 	namespace export create_tb_run
-	
+
 	# Add a pre-script to the last TB run created with create_tb_run. It must be called between create_tb_run and add_tb_run.
 	#
 	# @param cmd		Command for the pre-script
@@ -643,12 +656,12 @@ namespace eval psi::sim {
 		}
 	}
 	namespace export tb_run_add_pre_script
-	
+
 	# Add a post-script to the last TB run created with create_tb_run. It must be called between create_tb_run and add_tb_run.
 	#
 	# @param cmd		Command for the post-script
 	# @param args		Arguments to pass to the command
-	# @param path		Working directory to execute the command in	
+	# @param path		Working directory to execute the command in
 	proc tb_run_add_post_script {{cmd ""} {args ""} {path ""}} {
 		variable ThisTbRun
 		dict set ThisTbRun POSTSCRIPT_CMD $cmd
@@ -656,9 +669,9 @@ namespace eval psi::sim {
 		if {$path != ""} {
 			dict set ThisTbRun POSTSCRIPT_PATH [file normalize $path]
 		}
-	}	
+	}
 	namespace export tb_run_add_post_script
-	
+
 	# Specify different arguments set (e.g. generic values) to execute the TB for. It must be called between create_tb_run and add_tb_run.
 	#
 	# @param args		List of argument strings in the form "stringa" "stringB"
@@ -667,7 +680,7 @@ namespace eval psi::sim {
 		dict set ThisTbRun TB_ARGS $args
 	}
 	namespace export tb_run_add_arguments
-	
+
 	# Specify an end-time for a tb-run. Usually testbenches should stop on their own but in some cases (e.g. if Xilinx primitives do keep the simulation running and run -all is not workgin),
 	# it may be required to limit the runtime.
 	#
@@ -677,7 +690,7 @@ namespace eval psi::sim {
 		dict set ThisTbRun TIME_LIMIT $limit
 	}
 	namespace export tb_run_add_time_limit
-    
+
     # Skip this testbench for one or all simulators
     #
     # @param simulator  Simulator to skip the TB for (use "GHDL", "Modelsim" or "all")
@@ -686,7 +699,7 @@ namespace eval psi::sim {
         dict set ThisTbRun SKIP $simulator
     }
     namespace export tb_run_skip
-	
+
 	# This command must be called when a TB run created with create_tb_run is fully specified and can be added. The TB run cannot be modified after
 	# this command is called
 	proc add_tb_run {} {
@@ -695,12 +708,12 @@ namespace eval psi::sim {
 		lappend TbRuns $ThisTbRun; list
 	}
 	namespace export add_tb_run
-	
+
 	# Internal Function
 	proc clean_transcript {} {
 		sal_clean_transcript
 	}
-	
+
 	# Check if the transcript file contains a specific error string. Note that the string "Fatal:" is also interpreted as error.
 	#
 	# @param errorString	Error string to search for (should be included in all error messages)
@@ -711,21 +724,21 @@ namespace eval psi::sim {
 		set transcriptContent [read "$transcriptFile"]; list
 		close $transcriptFile
 		#Suppress the command call from analysis
-		regsub -all -linestop {.*run_check_errors.*} $transcriptContent "" transcriptContent		
+		regsub -all -linestop {.*run_check_errors.*} $transcriptContent "" transcriptContent
 		#Search for string
 		set found [regexp -nocase $errorString $transcriptContent]
 		set foundFatal [regexp -nocase {Fatal:} $transcriptContent]
 		sal_print_log $found
 		sal_print_log $foundFatal
 		if {($found == 1) || ($foundFatal == 1)} {
-			sal_print_log "!!! ERRORS OCCURED IN SIMULATIONS !!!"		
+			sal_print_log "!!! ERRORS OCCURED IN SIMULATIONS !!!"
 		} else {
 			sal_print_log "SIMULATIONS COMPLETED SUCCESSFULLY"
 		}
 	}
 	namespace export run_check_errors
-	
-	# Run one or more testbenches. The transcript is cleaned automatically before running the tesbenches. Pre- and Post-Scripts 
+
+	# Run one or more testbenches. The transcript is cleaned automatically before running the tesbenches. Pre- and Post-Scripts
 	# executed automatically if they were specified.
 	#
 	# Variable Arguments:
@@ -734,15 +747,15 @@ namespace eval psi::sim {
 	# -name <name>		Only run testbench with this name
 	# -contains <str>	Run only if testbench name contains a given string
 	#
-	# Note that -lib and -name can be combined to choose one specific testbench	
+	# Note that -lib and -name can be combined to choose one specific testbench
 	proc run_tb {args} {
-		
+
 		#Parse Arguments
 		set Library "All-Libraries"
 		set Name "All-Names"
 		set contains "All-regex"
 		set argList [split $args]
-		set i 0		
+		set i 0
 		while {$i < [llength $argList]} {
 			set thisArg [lindex $argList $i]
 			if {$thisArg == "-all"} {
@@ -794,7 +807,7 @@ namespace eval psi::sim {
                 sal_print_log "!!! Skipped for '$skip' !!!"
                 continue
             }
-		
+
 			#Execute pre-script if required
 			set PsCmd [dict get $run PRESCRIPT_CMD]
 			set PsPath [dict get $run PRESCRIPT_PATH]
@@ -802,7 +815,7 @@ namespace eval psi::sim {
 			if {($PsCmd != "")} {
 				sal_exec_script $PsPath $PsCmd $PsArgs
 			}
-			
+
 			#Execute TB for all arguments
 			sal_print_log "Running Simulation"
 			set allArgLists [dict get $run TB_ARGS]
@@ -817,13 +830,13 @@ namespace eval psi::sim {
 			set PsArgs [dict get $run POSTSCRIPT_ARGS]
 			if {($PsCmd != "")} {
 				sal_exec_script $PsPath $PsCmd $PsArgs
-			}		
-			
+			}
+
 		}
 		sal_transcript_off
 	}
-	namespace export run_tb	
-	
+	namespace export run_tb
+
 	# Launch a testbench and keep the simulator window open for interactive debugging. Because this is meant for
 	# interactive debugging and not for regression test, neither pre- nor post-scripts are ran.
 	# By default, the TB is run with the default generic values from the sources. Alternatively the user can choose
@@ -836,13 +849,13 @@ namespace eval psi::sim {
 	#
 	# Note that currently this command is only supported for Modelsim
 	proc launch_tb {args} {
-	
+
 		#Only Modelsim is supported currently for this debug command
 		variable Simulator
 		if {($Simulator != "Modelsim") && ($Simulator != "GHDL")} {
 			sal_print_log "ERROR: launch_tb: this command is only implemented for Modelsim and GHDL"
 			return
-		}	
+		}
 
 		#Parse Arguments
 		set contains "All-regex"
@@ -850,7 +863,7 @@ namespace eval psi::sim {
 		set wave ""
 		set show ""
 		set argList [split $args]
-		set i 0		
+		set i 0
 		while {$i < [llength $argList]} {
 			set thisArg [lindex $argList $i]
 			if {$thisArg == "-contains"} {
@@ -866,10 +879,10 @@ namespace eval psi::sim {
 				set thisArg [lindex $argList $i]
 				if {$thisArg == ""} {
 					set wave "all"
-				} elseif {$thisArg == "-show"} {  
+				} elseif {$thisArg == "-show"} {
 					set wave "all"
 					set show "enable"
-				} else {  
+				} else {
 					set wave $thisArg
 				}
 			} elseif {$thisArg == "-show"} {
@@ -886,7 +899,7 @@ namespace eval psi::sim {
 			sal_print_log "ERROR: launch_tb: -contains argument is required"
 			return
 		}
-		
+
 		#Launch
 		variable TbRuns
 		variable RunSuppress
@@ -921,19 +934,19 @@ namespace eval psi::sim {
 			} else {
 				set argsToUse [lindex $allArgLists $argidx]
 			}
-					
+
 			#Execute TB for arguments chosen
 			sal_print_log "Launching Simulation"
 			if {"Modelsim" == $Simulator} {
 				#Modelsim -> launch TB
 				sal_launch_tb $runLib $runName $argsToUse $RunSuppress $wave
-			}	
+			}
 			if {"GHDL" == $Simulator} {
 				set timeLimit [dict get $run TIME_LIMIT]
 				if {$wave != ""} {
 					set wave "$runName\_$argidx\.ghw"
 					sal_print_log "Writing Waveform: $wave"
-				} 
+				}
 				#GHDL -> run TB
 				sal_run_tb $runLib $runName $argsToUse $timeLimit $RunSuppress $wave
 				if {$show == "enable"} {
@@ -942,11 +955,11 @@ namespace eval psi::sim {
 			}
 
 			#Only do one TB, return after it was quit
-			return			
+			return
 		}
-		
+
 		#If we arrive here, no TB matched to -contains string
 		sal_print_log "ERROR: launch_tb: -contains <str> did not match any tb_runs!"
 	}
-	namespace export launch_tb	
+	namespace export launch_tb
 }
