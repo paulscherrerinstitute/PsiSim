@@ -820,7 +820,10 @@ namespace eval psi::sim {
 			sal_print_log "Running Simulation"
 			set allArgLists [dict get $run TB_ARGS]
 			set timeLimit [dict get $run TIME_LIMIT]
+			set argIdx 0
 			foreach tbArgs $allArgLists {
+				puts "ArgIdx = $argIdx"
+				set argIdx [expr $argIdx+1] 
 				#Tun TB
 				sal_run_tb $runLib $runName $tbArgs $timeLimit $RunSuppress
 			}
