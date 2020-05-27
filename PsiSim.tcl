@@ -156,6 +156,9 @@ namespace eval psi::sim {
 		} elseif {($Simulator == "GHDL") || ($Simulator == "Vivado")} {
 			file delete -force $lib
 			file mkdir $lib
+			foreach f [glob *.cf] {
+				file delete -force $f
+			}
 		} else {
 			puts "ERROR: Unsupported Simulator - sal_clean_lib(): $Simulator"
 		}
