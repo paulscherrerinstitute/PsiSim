@@ -156,7 +156,7 @@ namespace eval psi::sim {
 		} elseif {($Simulator == "GHDL") || ($Simulator == "Vivado")} {
 			file delete -force $lib
 			file mkdir $lib
-			foreach f [glob *.cf] {
+			foreach f [glob -nocomplain *.cf] {
 				file delete -force $f
 			}
 		} else {
