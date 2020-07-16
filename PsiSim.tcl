@@ -175,7 +175,11 @@ namespace eval psi::sim {
 			}
 		} elseif {$Simulator == "GHDL"} {
 			if {$language == "vhdl"} {
-				if {$langVersion != "2008"} {
+				if {$langVersion == "2002"} {
+					# compile for 2002 (to make sure no 2008 features are used) but compile again for 2008
+					# since we assume most testbenches will use that and ghdl does not support mixing versions
+					exec ghdl -a --ieee=synopsys --std=02 -fexplicit -frelaxed-rules -Wno-shared -Wno-hide --work=$lib -P. $path
+				} elseif {$langVersion != "2008"} {
 					sal_print_log "ERROR: VHDL Version $langVersion not supported for GHDL"
 				}
 				exec ghdl -a --ieee=synopsys --std=08 -frelaxed-rules -Wno-shared -Wno-hide --work=$lib -P. $path
