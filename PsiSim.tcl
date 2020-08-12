@@ -198,7 +198,8 @@ namespace eval psi::sim {
 				sal_print_log "ERROR: Verilog currently not supported for Vivado, request this feature from the developers"
 				sal_print_log ""
 			}
-			exec xvhdl --lib=$lib --work $lib=$lib $langArg $path
+			# langArg may be empty and confuse xvhdl; therefore we 'eval'...
+			eval exec xvhdl --lib=$lib --work $lib=$lib $langArg $path
 		} else {
 			puts "ERROR: Unsupported Simulator - sal_compile_file(): $Simulator"
 		}
