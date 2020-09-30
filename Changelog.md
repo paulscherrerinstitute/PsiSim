@@ -1,3 +1,12 @@
+## 2.5.0
+
+* Added Features
+  * Support 'glob' patterns in add_sources.
+* Bugfixes
+  * GHDL: work-around for language version 2002
+  * GHDL: install library products into subdirs
+  * Vivado: fixed 'exec xvhdl ... $langArg ...' command (confused by empty langArg)
+
 ## 2.4.0
 
 * Added Features
