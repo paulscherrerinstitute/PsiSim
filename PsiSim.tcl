@@ -466,25 +466,33 @@ namespace eval psi::sim {
 		}
 		#Add files
 		variable Sources
-		foreach file $files {
-			set path [file normalize [concat $directory/$file]]
-			set ThisSrc [dict create]
-			dict set ThisSrc PATH $path
-			dict set ThisSrc LIBRARY $tgtLib
-			dict set ThisSrc TAG $tag
-			dict set ThisSrc LANGUAGE $language
-			dict set ThisSrc VERSION $version
-			dict set ThisSrc OPTIONS $options
-			#check if the file already exists for this library
-			foreach entry $Sources {
-				set ePath [dict get $entry PATH]
-				set eLib [dict get $entry LIBRARY]
-				if {($path == $ePath) && ($tgtLib == $eLib)} {
-					sal_print_log "WARNING: file $ePath already added to library $eLib" 
+		foreach patt $files {
+			set normalizedPatt [file normalize [concat $directory/$patt]]
+			if { ! [ catch {set found [glob $normalizedPatt]} ] } {
+				foreach path $found {
+					set ThisSrc [dict create]
+					dict set ThisSrc PATH $path
+					dict set ThisSrc LIBRARY $tgtLib
+					dict set ThisSrc TAG $tag
+					dict set ThisSrc LANGUAGE $language
+					dict set ThisSrc VERSION $version
+					dict set ThisSrc OPTIONS $options
+#check if the file already exists for this library
+					foreach entry $Sources {
+						set ePath [dict get $entry PATH]
+							set eLib [dict get $entry LIBRARY]
+							if {($path == $ePath) && ($tgtLib == $eLib)} {
+								sal_print_log "WARNING: file $ePath already added to library $eLib"
+							}
+					}
+					# FIXME: should we omit appending existing source again?
+					#        keep existing behaviour for now...
+					lappend Sources $ThisSrc
 				}
+			} else {
+				sal_print_log "WARNING: file/pattern $normalizedPatt not found - skipping"
 			}
-			lappend Sources $ThisSrc
-		}		
+		}
 	}
 	namespace export add_sources
 	
