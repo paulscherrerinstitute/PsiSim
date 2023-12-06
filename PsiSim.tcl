@@ -745,22 +745,33 @@ namespace eval psi::sim {
 	#
 	# @param errorString	Error string to search for (should be included in all error messages)
 	proc run_check_errors {errorString} {
-		#Read transcript
+		append errorPattern "*" $errorString "*"
+		set commandCall "*run_check_errors*"
+		set fatalPattern "*Fatal:*"
+		set errorCount 0
+		set fatalCount 0
+		# Get Data from Transcript File
 		sal_transcript_off
 		set transcriptFile [open "./Transcript.transcript" r]
-		set transcriptContent [read "$transcriptFile"]; list
+		set transcriptLines [split [read $transcriptFile] "\n"]
 		close $transcriptFile
-		#Suppress the command call from analysis
-		regsub -all -linestop {.*run_check_errors.*} $transcriptContent "" transcriptContent
-		#Search for string
-		set found [regexp -nocase $errorString $transcriptContent]
-		set foundFatal [regexp -nocase {Fatal:} $transcriptContent]
-		sal_print_log $found
-		sal_print_log $foundFatal
-		if {($found == 1) || ($foundFatal == 1)} {
-			sal_print_log "!!! ERRORS OCCURED IN SIMULATIONS !!!"
+		# Find Error and Fatal
+		sal_print_log "\n\n"
+		foreach line $transcriptLines {
+			if {[string match $errorPattern $line] && ![string match $commandCall $line]} {
+				sal_print_log $line
+				incr errorCount 
+			}
+			if {[string match $fatalPattern $line]} {
+				sal_print_log $line
+				incr fatalCount 
+			}
+		}
+		# Check Result
+		if {($errorCount > 0) || ($fatalCount > 0)} {
+			sal_print_log "\n!!! $errorCount ERRORS AND $fatalCount FATAL OCCURED IN SIMULATIONS !!!"		
 		} else {
-			sal_print_log "SIMULATIONS COMPLETED SUCCESSFULLY"
+			sal_print_log "\nSIMULATIONS COMPLETED SUCCESSFULLY"
 		}
 	}
 	namespace export run_check_errors
