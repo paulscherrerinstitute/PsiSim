@@ -155,7 +155,6 @@ namespace eval psi::sim {
 			vlib $lib
 		} elseif {($Simulator == "GHDL") || ($Simulator == "Vivado")} {
 			file delete -force $lib
-			file mkdir $lib
 			foreach f [glob -nocomplain *.cf] {
 				file delete -force $f
 			}
@@ -180,15 +179,31 @@ namespace eval psi::sim {
 			}
 		} elseif {$Simulator == "GHDL"} {
 			if {$language == "vhdl"} {
-				if {$langVersion != "2008"} {
-					sal_print_log "ERROR: VHDL Version $langVersion not supported for GHDL"
-				}
-				set options "--ieee=synopsys --std=08 -frelaxed-rules -Wno-shared -Wno-hide"
+				set options "--ieee=synopsys -frelaxed-rules -Wno-shared -Wno-hide"
 				set searchLibs "-P."
 				if {$CompiledLibPath != ""} {
 					lappend searchLibs "-P$CompiledLibPath"
 				}
-				set ghdl_analyze [list ghdl -a {*}$options {*}$searchLibs --work=$lib $path]
+				if {$langVersion == "2002"} {
+					# compile for 2002 (to make sure no 2008 features are used) but compile again for 2008
+					# since we assume most testbenches will use that and ghdl does not support mixing versions
+					file mkdir $lib/v02
+					lappend options02 $options "--std=02" "-fexplicit"
+					set ghdl_analyze [list ghdl -a {*}$options02 {*}$searchLibs --workdir=$lib/v02 --work=$lib $path]
+					exec {*}$ghdl_analyze
+					# exec ghdl -a --ieee=synopsys --std=02 -fexplicit -frelaxed-rules -Wno-shared -Wno-hide --workdir=$lib/v93 --work=$lib -P. $path # old ghdl call
+				} elseif {$langVersion != "2008"} {
+					sal_print_log "ERROR: VHDL Version $langVersion not supported for GHDL"
+				}
+				file mkdir $lib/v08
+				lappend options08 $options "--std=08"
+				#exec ghdl -a --ieee=synopsys --std=08 -frelaxed-rules -Wno-shared -Wno-hide --work=$lib -P. $path
+				#set options "--ieee=synopsys --std=08 -frelaxed-rules -Wno-shared -Wno-hide"
+				#set searchLibs "-P."
+				#if {$CompiledLibPath != ""} {
+				#	lappend searchLibs "-P$CompiledLibPath"
+				#}
+				set ghdl_analyze [list ghdl -a {*}$options08 {*}$searchLibs --workdir=$lib/v08 --work=$lib $path]
 				exec {*}$ghdl_analyze
 			} else {
 				sal_print_log "ERROR: Verilog currently not supported for GHDL"
@@ -204,7 +219,8 @@ namespace eval psi::sim {
 				sal_print_log "ERROR: Verilog currently not supported for Vivado, request this feature from the developers"
 				sal_print_log ""
 			}
-			exec xvhdl --lib=$lib --work $lib=$lib $langArg $path
+			# langArg may be empty and confuse xvhdl; therefore we 'eval'...
+			eval exec xvhdl --lib=$lib --work $lib=$lib $langArg $path
 		} else {
 			puts "ERROR: Unsupported Simulator - sal_compile_file(): $Simulator"
 		}
@@ -256,7 +272,7 @@ namespace eval psi::sim {
 			if {$wave != ""} {
 				set wave " --wave=$wave"
 			}
-			set cmd "ghdl --elab-run --ieee=synopsys --std=08 -frelaxed-rules -Wno-shared --work=$lib $tbName$tbArgs$stopTime$wave --ieee-asserts=disable"
+			set cmd "ghdl --elab-run --ieee=synopsys --std=08 -frelaxed-rules -Wno-shared --workdir=$lib/v08 --work=$lib $tbName$tbArgs$stopTime$wave --ieee-asserts=disable"
 			sal_print_log $cmd
 			set outp [eval "exec $cmd"]
 			sal_print_log $outp
@@ -482,24 +498,32 @@ namespace eval psi::sim {
 		}
 		#Add files
 		variable Sources
-		foreach file $files {
-			set path [file normalize [concat $directory/$file]]
-			set ThisSrc [dict create]
-			dict set ThisSrc PATH $path
-			dict set ThisSrc LIBRARY $tgtLib
-			dict set ThisSrc TAG $tag
-			dict set ThisSrc LANGUAGE $language
-			dict set ThisSrc VERSION $version
-			dict set ThisSrc OPTIONS $options
-			#check if the file already exists for this library
-			foreach entry $Sources {
-				set ePath [dict get $entry PATH]
-				set eLib [dict get $entry LIBRARY]
-				if {($path == $ePath) && ($tgtLib == $eLib)} {
-					sal_print_log "WARNING: file $ePath already added to library $eLib"
+		foreach patt $files {
+			set normalizedPatt [file normalize [concat $directory/$patt]]
+			if { ! [ catch {set found [glob $normalizedPatt]} ] } {
+				foreach path $found {
+					set ThisSrc [dict create]
+					dict set ThisSrc PATH $path
+					dict set ThisSrc LIBRARY $tgtLib
+					dict set ThisSrc TAG $tag
+					dict set ThisSrc LANGUAGE $language
+					dict set ThisSrc VERSION $version
+					dict set ThisSrc OPTIONS $options
+#check if the file already exists for this library
+					foreach entry $Sources {
+						set ePath [dict get $entry PATH]
+							set eLib [dict get $entry LIBRARY]
+							if {($path == $ePath) && ($tgtLib == $eLib)} {
+					sal_print_log "WARNING: file $ePath already added to library $eLib" 
+							}
+					}
+					# FIXME: should we omit appending existing source again?
+					#        keep existing behaviour for now...
+					lappend Sources $ThisSrc
 				}
+			} else {
+				sal_print_log "WARNING: file/pattern $normalizedPatt not found - skipping"
 			}
-			lappend Sources $ThisSrc
 		}
 	}
 	namespace export add_sources
